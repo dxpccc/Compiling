@@ -1,8 +1,6 @@
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.security.Key;
-import java.security.SecurityPermission;
 import java.util.StringTokenizer;
 
 public class Main {
@@ -25,7 +23,7 @@ public class Main {
     }
 
     public static void print(String string) {
-        StringTokenizer st = new StringTokenizer(string, " =;(){}+*/<>", true);
+        StringTokenizer st = new StringTokenizer(string, " \n\r\t=;(){}+*/<>", true);
         while (st.hasMoreTokens()) {
             String a = st.nextToken();
             if (a.equals("=") && st.hasMoreTokens()) {
@@ -47,18 +45,22 @@ public class Main {
 
     public static void match(String string) {
         if (!string.matches("\\s+")) {
+            // 匹配标识符
             if (string.matches("[a-z_A-Z][a-z_A-Z\\d]*")) {
+                // 判断是否为保留字
                 if (Keyword.isKeyword(string))
                     Keyword.print(string);
                 else
                     System.out.println("Ident(" + string + ")");
             } else if (string.matches("\\d+")) {
+                // 匹配数字
                 System.out.println("Number(" + string + ")");
             } else if (Separator.isSeparator(string)) {
+                // 匹配间隔符
                 Separator.print(string);
             } else {
                 System.out.println("Err");
-                //isStop = true;
+                isStop = true;
             }
         }
     }
