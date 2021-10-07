@@ -58,7 +58,7 @@ public class Main {
                 Separator.print(string);
             } else {
                 System.out.println("Err");
-                isStop = true;
+                //isStop = true;
             }
         }
     }
