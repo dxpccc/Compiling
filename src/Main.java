@@ -30,10 +30,16 @@ public class Main {
             String a = st.nextToken();
             if (a.equals("=") && st.hasMoreTokens()) {
                 String b = st.nextToken();
-                if (b.equals("="))
+                if (b.equals("=")) {
                     a = a + b;
+                    match(a);
+                } else {
+                    match(a);
+                    match(b);
+                }
             }
-            match(a);
+            else
+                match(a);
             if (isStop)
                 break;
         }
