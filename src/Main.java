@@ -13,6 +13,7 @@ public class Main {
             FileReader reader = new FileReader(file);
             BufferedReader bfReader = new BufferedReader(reader);
             while ((str = bfReader.readLine()) != null) {
+                System.out.println(str);
                 print(str);
                 if (isStop)
                     break;
