@@ -63,7 +63,8 @@ public class Main {
             } else if (Separator.isSeparator(curChar)) {
                 Separator.print(curChar);
             } else if (Separator.isEqual(curChar)) {
-                if (index < len -1 && string.charAt(++index) == '=') {
+                if (index < len -1 && string.charAt(index + 1) == '=') {
+                    index++;
                     System.out.println("Eq");
                 } else
                     Separator.print(curChar);
