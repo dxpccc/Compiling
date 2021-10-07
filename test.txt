@@ -1,0 +1,9 @@
+a = 10;
+c = a * 2 + 3;
+return c;
+===
+_agg = 10000;
+:sdf = asd;
+if (a = b) {
+    <d>
+}
