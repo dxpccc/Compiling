@@ -44,7 +44,7 @@ public class Main {
     }
 
     public static void match(String string) {
-        if (!string.matches("\\s+")) {
+        if (!string.matches("\\s*")) {
             // 匹配标识符
             if (string.matches("[a-z_A-Z][a-z_A-Z\\d]*")) {
                 // 判断是否为保留字
