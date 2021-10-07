@@ -18,7 +18,8 @@ public class Main {
             FileReader reader = new FileReader(file);
             BufferedReader bfReader = new BufferedReader(reader);
             while ((str = bfReader.readLine()) != null) {
-                print(str);
+                if (!isStop)
+                    print(str);
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());
@@ -41,8 +42,8 @@ public class Main {
                 }
                 --index;
                 String str = token.toString();
-                if (Keyword.isKeyword(string))
-                    Keyword.print(string);
+                if (Keyword.isKeyword(str))
+                    Keyword.print(str);
                 else
                     System.out.println("Ident(" + str + ")");
                 token.delete(0, token.length());
@@ -75,8 +76,11 @@ public class Main {
                         break;
                 }
                 --index;
-            } else
+            } else {
                 System.out.println("Err");
+                isStop = true;
+                break;
+            }
         }
     }
 
