@@ -6,8 +6,8 @@ import java.util.ArrayList;
 
 public class Main {
     public static void main(String[] args) {
-        //File file = new File(args[0]);
-        File file = new File("test.txt");
+        File file = new File(args[0]);
+        //File file = new File("test.txt");
         ArrayList<String> strings = readFile(file);
         System.out.println(strings);
         /*ArrayList<String> res_lexer = Lexer.analyse(strings);
