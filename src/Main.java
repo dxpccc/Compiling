@@ -6,10 +6,11 @@ import java.util.ArrayList;
 
 public class Main {
     public static void main(String[] args) {
-        File file = new File(args[0]);
-        // File file = new File("test.txt");
+        //File file = new File(args[0]);
+        File file = new File("test.txt");
         ArrayList<String> strings = readFile(file);
-        ArrayList<String> res_lexer = Lexer.analyse(strings);
+        System.out.println(strings);
+        /*ArrayList<String> res_lexer = Lexer.analyse(strings);
         if (res_lexer == null)
             System.exit(-1);
         // System.out.println(res_lexer);
@@ -19,7 +20,7 @@ public class Main {
         if (!res_syntax)
             System.exit(-2);
         LLVMIRMaker maker = new LLVMIRMaker();
-        maker.print(res_lexer);
+        maker.print(res_lexer);*/
     }
 
     public static ArrayList<String> readFile(File file) {
