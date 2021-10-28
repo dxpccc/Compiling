@@ -1,4 +1,4 @@
-FROM openjdk:8-alpine
+FROM openjdk:8
 COPY ./* /app/
 WORKDIR /app/
-RUN javac ./*.java
+RUN javac ./src/*.java

@@ -114,7 +114,7 @@ public class Syntax {
                 }
             }
         }
-        return stop;
+        return !stop;
     }
 
     /*
