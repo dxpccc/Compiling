@@ -55,6 +55,11 @@ public class Syntax {
         terminal.put("{", 2);
         terminal.put("return", 3);
         terminal.put("#", 4);
+        terminal.put("(", 5);
+        terminal.put(")", 6);
+        terminal.put("}", 7);
+        terminal.put("Number", 8);
+        terminal.put(";", 9);
     }
 
     private void initNonTerminal() {
@@ -92,6 +97,7 @@ public class Syntax {
             while (!stack.empty() && index < len) {
                 String left = stack.peek();
                 String right = queue.get(index);
+                // System.out.println(stack + "\t" + queue);
                 if (isNonTerminal(left)) {
                     // 匹配到非终结符，查LL1分析表，表达式倒序入栈
                     String production = productions.get(LL1_table[getIndexOfNT(left)][getIndexOfT(right)]); // 查询LL1分析表
@@ -100,6 +106,7 @@ public class Syntax {
                         stop = true;
                         break;
                     } else {
+                        stack.pop();
                         String[] strings = production.split("\\s+");
                         for (int i = strings.length - 1; i > 0; --i)
                             // 倒序入栈

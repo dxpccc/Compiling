@@ -1,5 +1,3 @@
 int main() {
     return 123;
-    return 012;
-    return 0xad12;
 }
