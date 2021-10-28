@@ -1,5 +1,5 @@
 [jobs.lab1]
-image = { source = "dockerfile", path = "./src/"}
+image = { source = "dockerfile", path = "."}
 
 run = [
     "java Main $input"
