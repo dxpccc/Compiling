@@ -1,32 +1,20 @@
 import java.util.ArrayList;
-import java.util.HashMap;
 
 /*
 * 词法分析程序
 * */
 public class Lexer {
-    private static HashMap<Integer, String> vocabulary = new HashMap<>();
-    private static HashMap<String, Integer> s2i;
     private static ArrayList<String> output = new ArrayList<>();
 
     private static boolean isStop = false;
     private static StringBuilder token = new StringBuilder();
 
-    private static void initMap() {
-        vocabulary.put(5, "int");
-        vocabulary.put(6, "main");
-        vocabulary.put(7, "return");
-        vocabulary.put(8, "(");
-        vocabulary.put(9, ")");
-        vocabulary.put(10, "{");
-        vocabulary.put(11, "}");
-        vocabulary.put(12, ";");
-    }
-
     public static ArrayList<String> analyse(ArrayList<String> input) {
         int len = input.size();
         for (int i = 0; i < len && !isStop; ++i)
             getWord(input.get(i));
+        if(isStop)
+            output = null;
         return output;
     }
 

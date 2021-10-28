@@ -9,7 +9,10 @@ public class Main {
         //File file = new File(args[0]);
         File file = new File("test.txt");
         ArrayList<String> strings = readFile(file);
-        System.out.println(Lexer.analyse(strings));
+        ArrayList<String> res_lexer = Lexer.analyse(strings);
+        // System.out.println(res_lexer);
+        Syntax syntax = new Syntax();
+        // System.out.println(syntax.analyse(res_lexer));
     }
 
     public static ArrayList<String> readFile(File file) {
