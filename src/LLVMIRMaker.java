@@ -26,7 +26,7 @@ public class LLVMIRMaker {
             for (String s : input) {
                 String[] strings = s.split("\\s+");
                 if (strings[0].equals("2"))
-                    res.append(strings[1]);
+                    res.append(numFormat(strings[1]));
             }
             res.append("}");
             return res.toString();
