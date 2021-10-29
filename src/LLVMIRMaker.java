@@ -39,7 +39,7 @@ public class LLVMIRMaker {
         if (string.matches("0[0-7]+")) {
             res = String.valueOf(Integer.parseInt(string, 8));
         } else if (string.matches("(0x|0X)[0-9a-fA-F]+")) {
-            res = String.valueOf(Integer.parseInt(string, 16));
+            res = String.valueOf(Integer.parseInt(string.substring(2), 16));
         } else
             res = string;
         return res;
