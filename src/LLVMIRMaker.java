@@ -1,3 +1,4 @@
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -18,7 +19,7 @@ public class LLVMIRMaker {
         vocabulary.put(12, ";");
     }
 
-    public void print(ArrayList<String> input) {
+    public String print(ArrayList<String> input) {
         if (input != null) {
             StringBuilder res = new StringBuilder();
             res.append("define dso_local i32 @main(){ret i32 ");
@@ -28,7 +29,8 @@ public class LLVMIRMaker {
                     res.append(strings[1]);
             }
             res.append("}");
-            System.out.println(res);
-        }
+            return res.toString();
+        } else
+            return null;
     }
 }
