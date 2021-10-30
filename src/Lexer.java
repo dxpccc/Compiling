@@ -1,3 +1,4 @@
+import java.sql.Struct;
 import java.util.ArrayList;
 
 /*
@@ -6,14 +7,15 @@ import java.util.ArrayList;
 public class Lexer {
     private static ArrayList<String> output = new ArrayList<>();
 
-    private static boolean isStop = false;
+    private static boolean stop = false;
+    private static boolean isAnnotation = false;
     private static StringBuilder token = new StringBuilder();
 
     public static ArrayList<String> analyse(ArrayList<String> input) {
         int len = input.size();
-        for (int i = 0; i < len && !isStop; ++i)
+        for (int i = 0; i < len && !stop; ++i)
             getWord(input.get(i));
-        if(isStop)
+        if(stop)
             output = null;
         return output;
     }
@@ -23,6 +25,16 @@ public class Lexer {
         int len = string.length();
         for (int index = 0; index < len; ++index) {
             char curChar = string.charAt(index);
+
+            if (isAnnotation) {
+                while (index < len - 1 && !(curChar == '*' && string.charAt(index + 1) == '/'))
+                    curChar = string.charAt(++index);
+                if (curChar == '*' && string.charAt(index + 1) == '/')
+                    isAnnotation = false;
+                ++index;
+                continue;
+            }
+
             if (isDigit(curChar)) {
                 if (curChar == '0') {
                     if (index < len - 2
@@ -85,7 +97,7 @@ public class Lexer {
                         output.add("7 return");
                         break;
                     default:
-                        isStop = true;
+                        stop = true;
                         break;
                 }
                 token.delete(0, token.length());
@@ -118,8 +130,20 @@ public class Lexer {
                         break;
                 }
                 --index;
-            } else {
-                isStop = true;
+            } else if (curChar == '/') {
+                if (index < len -1 && string.charAt(index + 1) == '/') {
+                    break;
+                } else if (index < len - 1 && string.charAt(index + 1) == '*') {
+                    isAnnotation = true;
+                    index += 2;
+                    while (index < len - 2 && string.charAt(index) != '*' && string.charAt(index + 1) == '/')
+                        ++index;
+                } else {
+                    stop = true;
+                    break;
+                }
+            }else {
+                stop = true;
                 break;
             }
         }
