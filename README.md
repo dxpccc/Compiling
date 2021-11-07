@@ -14,6 +14,8 @@ RETURN|7|return
 {|10|{
 }|11|}
 ;|12|;
++|13|+
+-|14|-
 
 ### 产生式
 CompUnit
@@ -27,6 +29,7 @@ CompUnit
 | Ident    | main   | （     |
 | Block    | {      | #      |
 | Stmt     | return | }      |
+| Exp      | 
 
 ### LL(1)分析表
 |          | (    | )    | int                                 | main           | {                  | }    | return                   | Number | ;    |
