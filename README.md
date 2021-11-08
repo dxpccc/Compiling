@@ -26,18 +26,28 @@ CompUnit
 | CompUnit | int    | #      |
 | FuncDef  | int    | #      |
 | FuncType | int    | main   |
-| Ident    | main   | （     |
+| Ident    | main   | (      |
 | Block    | {      | #      |
 | Stmt     | return | }      |
-| Exp      | 
+| Exp      | (, Number, +, - | ;, ) |
+| AddExp   | (, Number, +, - | ;, ) |
+| MulExp   | (, Number, +, - | ;, ) |
+| UnaryExp | (, Number, +, - | ;, ) |
+| PrimaryExp| (, Number | ;, ) |
+| UnaryOp  | +, - | (, Number, +, - |
 
 ### LL(1)分析表
-|          | (    | )    | int                                 | main           | {                  | }    | return                   | Number | ;    |
-| -------- | ---- | ---- | ----------------------------------- | -------------- | ------------------ | ---- | ------------------------ | ------ | ---- |
+|          | (    | )    | int                                 | main           | {                  | }    | return                   | Number | ;    | + | - | # |
+| -------- | ---- | ---- | ----------------------------------- | -------------- | ------------------ | ---- | ------------------------ | ------ | ---- |---|---|---|
 | CompUnit |      |      | CompUnit$\to$FuncDef                |                |                    |      |                          |        |      |
 | FuncDef  |      |      | FuncDef$\to$FuncType Ident () Block |                |                    |      |                          |        |      |
 | FuncType |      |      | FuncType$\to$int                    |                |                    |      |                          |        |      |
 | Ident    |      |      |                                     | Ident$\to$main |                    |      |                          |        |      |
 | Block    |      |      |                                     |                | Block$\to${ Stmt } |      |                          |        |      |
-| Stmt     |      |      |                                     |                |                    |      | Stmt$\to$return Number ; |        |      |
-
+| Stmt     |      |      |                                     |                |                    |      | Stmt$\to$return Exp ; |        |      |
+| Exp      | Exp
+| AddExp
+| MulExp
+| UnaryExp
+| PrimaryExp
+| UnaryOp
