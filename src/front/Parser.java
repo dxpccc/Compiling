@@ -1,74 +1,16 @@
+package front;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Stack;
 
-public class Syntax {
-    private HashMap<Integer, String> vocabulary = new HashMap<>();
+public class Parser {
     private ArrayList<String> productions = new ArrayList<>();
     private HashMap<String, Integer> terminal = new HashMap<>();
     private HashMap<String, Integer> non_terminal = new HashMap<>();
-    private int[][] LL1_table = new int[6][5];
 
     private void init() {
-        initVocabulary();
-        initProductions();
-        initLL1Table();
-    }
 
-    private void initVocabulary() {
-        vocabulary.put(2, "Number");
-        vocabulary.put(5, "int");
-        vocabulary.put(6, "main");
-        vocabulary.put(7, "return");
-        vocabulary.put(8, "(");
-        vocabulary.put(9, ")");
-        vocabulary.put(10, "{");
-        vocabulary.put(11, "}");
-        vocabulary.put(12, ";");
-    }
-
-    private void initProductions() {
-        productions.add("err");
-        productions.add("CompUnit FuncDef");
-        productions.add("FuncDef FuncType Ident ( ) Block");
-        productions.add("FuncType int");
-        productions.add("Ident main");
-        productions.add("Block { Stmt }");
-        productions.add("Stmt return Number ;");
-    }
-
-    private void initLL1Table() {
-        initTerminal();
-        initNonTerminal();
-
-        LL1_table[0][0] = 1;
-        LL1_table[1][0] = 2;
-        LL1_table[2][0] = 3;
-        LL1_table[3][1] = 4;
-        LL1_table[4][2] = 5;
-        LL1_table[5][3] = 6;
-    }
-
-    private void initTerminal() {
-        terminal.put("int", 0);
-        terminal.put("main", 1);
-        terminal.put("{", 2);
-        terminal.put("return", 3);
-        terminal.put("#", 4);
-        terminal.put("(", 5);
-        terminal.put(")", 6);
-        terminal.put("}", 7);
-        terminal.put("Number", 8);
-        terminal.put(";", 9);
-    }
-
-    private void initNonTerminal() {
-        non_terminal.put("CompUnit", 0);
-        non_terminal.put("FuncDef", 1);
-        non_terminal.put("FuncType", 2);
-        non_terminal.put("Ident", 3);
-        non_terminal.put("Block", 4);
-        non_terminal.put("Stmt", 5);
     }
 
     private int getIndexOfT(String string) {

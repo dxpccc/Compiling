@@ -1,8 +1,10 @@
+package mid;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class LLVMIRMaker {
+public class IRBuilder {
     private HashMap<Integer, String> vocabulary = new HashMap<>();
 
     private void initVocabulary() {
@@ -44,4 +46,5 @@ public class LLVMIRMaker {
             res = string;
         return res;
     }
+
 }
