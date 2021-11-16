@@ -162,7 +162,7 @@ public class Lexer {
             if (curChar == 'x' || curChar == 'X') {
                 // 16进制
                 curChar = bfdReader.read();
-                if (isDigit(curChar)) {
+                if (isHexDigit(curChar)) {
                     bfdReader.reset();
                     curChar = bfdReader.read();
                     value.append((char) curChar);
