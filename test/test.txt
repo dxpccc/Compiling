@@ -1,4 +1,3 @@
 int main() {
     return 0; // adf
-    return 0x1;
 }

@@ -92,9 +92,9 @@ public class Parser {
         Token token = getNextToken();
         if (token != null && token.getType() == TokenType.INT) {
             if (getNextToken().getType() == TokenType.MAIN && getNextToken().getType() == TokenType.PAREN_L && getNextToken().getType() == TokenType.PAREN_R) {
-                BaseAST baseAST = parseBlock();
-                if (baseAST != null)
-                    return new FuncDefAST("int", "main", parseBlock());
+                BlockAST blockAST = parseBlock();
+                if (blockAST != null)
+                    return new FuncDefAST("int", "main", blockAST);
                 else
                     return null;
             }
@@ -105,8 +105,10 @@ public class Parser {
     }
 
     public CompUnitAST parseCompUnit() {
-        if (parseFuncDef() == null)
+        FuncDefAST funcDefAST = parseFuncDef();
+        if (funcDefAST == null)
             return null;
-        return new CompUnitAST(parseFuncDef());
+        else
+            return new CompUnitAST(funcDefAST);
     }
 }
