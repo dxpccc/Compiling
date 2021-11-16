@@ -62,7 +62,7 @@ public class Parser {
         Token token = getNextToken();
         if (token != null && token.getType() == TokenType.RETURN) {
             token = getNextToken();
-            if (token.getType() == TokenType.NUMBER) {
+            if (token != null && token.getType() == TokenType.NUMBER) {
                 StmtAST stmtAST = new StmtAST(token.getValue());
                 token = getNextToken();
                 if (token.getType() == TokenType.SEMICOLON)
