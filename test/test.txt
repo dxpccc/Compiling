@@ -1,7 +1,4 @@
 int main() {
-    return 123; /* as
-    ds
-    asda
-    adasd
-    addfa */
+    return 0; // adf
+    return 0x1;
 }

@@ -176,7 +176,8 @@ public class Lexer {
                     bfdReader.reset();
                     curChar = bfdReader.read();
                 }
-            } else {
+            } else if (isOctalDigit(curChar)) {
+                value.append((char) curChar);
                 // 8进制
                 while (isOctalDigit((curChar = bfdReader.read())))
                     value.append((char) curChar);

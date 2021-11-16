@@ -31,12 +31,31 @@ public class Parser {
         return parseCompUnit();
     }
 
-    public NumberAST parseNumber(int number) {
+    public NumberAST parseNumber(String number) {
         return new NumberAST(number);
     }
 
     public IdentityAST parseIdent(String ident) {
         return new IdentityAST(ident);
+    }
+
+    public BaseAST parseUnaryExp() {
+        Token token = getNextToken();
+
+        if (token == null)
+            return null;
+        else if (token.getType() == TokenType.PLUS || token.getType() == TokenType.MINUS) {
+            return new UnaryExpAST(token.getValue(), parseUnaryExp());
+        } else if (token.getType() == TokenType.PAREN_L) {
+            BaseAST ast = parseUnaryExp();
+            if (getNextToken().getType() != TokenType.PAREN_R)
+                return null;
+            else
+                return ast;
+        } else if (token.getType() == TokenType.NUMBER) {
+            return parseNumber(token.getValue());
+        } else
+            return null;
     }
 
     public StmtAST parseStmt() {
@@ -72,8 +91,13 @@ public class Parser {
     public FuncDefAST parseFuncDef() {
         Token token = getNextToken();
         if (token != null && token.getType() == TokenType.INT) {
-            if (getNextToken().getType() == TokenType.MAIN && getNextToken().getType() == TokenType.PAREN_L && getNextToken().getType() == TokenType.PAREN_R)
-                return new FuncDefAST("int", "main", parseBlock());
+            if (getNextToken().getType() == TokenType.MAIN && getNextToken().getType() == TokenType.PAREN_L && getNextToken().getType() == TokenType.PAREN_R) {
+                BaseAST baseAST = parseBlock();
+                if (baseAST != null)
+                    return new FuncDefAST("int", "main", parseBlock());
+                else
+                    return null;
+            }
             else
                 return null;
         } else
@@ -81,6 +105,8 @@ public class Parser {
     }
 
     public CompUnitAST parseCompUnit() {
+        if (parseFuncDef() == null)
+            return null;
         return new CompUnitAST(parseFuncDef());
     }
 }

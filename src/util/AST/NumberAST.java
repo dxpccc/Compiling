@@ -1,14 +1,18 @@
 package util.AST;
 
 public class NumberAST implements BaseAST {
-    private int number;
+    private String number;
 
-    public NumberAST(int number) {
+    public NumberAST(String number) {
         this.number = number;
+    }
+
+    public NumberAST() {
+        this(null);
     }
 
     @Override
     public String generateIR() {
-        return String.valueOf(number);
+        return number;
     }
 }
