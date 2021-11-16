@@ -1,9 +1,10 @@
 import front.Lexer;
 import front.Parser;
 import mid.IRBuilder;
+import util.AST.BaseAST;
+import util.AST.CompUnitAST;
 import util.Token;
 
-import java.io.*;
 import java.util.ArrayList;
 
 public class Main {
@@ -12,14 +13,13 @@ public class Main {
         ArrayList<Token> res_lexer = lexer.analyse();   // 词法分析结果
         if (res_lexer == null)                                  // 词法分析出错返回-1
             System.exit(-1);
-        Parser parser = new Parser();
-        boolean res_syntax = parser.analyse();         // 语法分析结果
-        if (!res_syntax)
-            System.exit(-2);                             // 语法分析出错返回-2
-        IRBuilder maker = new IRBuilder();
-        String res_maker = maker.print(res_lexer);              // 生成LLVM IR文件
-        if (res_maker != null) {
-            writeFile(res_maker, output);
-        }
+
+        Parser parser = new Parser(res_lexer);
+        CompUnitAST res_parser = parser.analyse();
+        if (res_parser == null)
+            System.exit(-2);
+
+        IRBuilder ir = new IRBuilder(args[1]);
+        ir.generateIR(res_parser);
     }
 }

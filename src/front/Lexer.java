@@ -6,24 +6,22 @@ import util.TokenType;
 
 import java.io.*;
 import java.util.ArrayList;
-import java.util.HashMap;
 
 /*
 * 词法分析程序
 * */
 public class Lexer {
-    private String path;
+    private final String path;
     private Reader reader;
     private BufferedReader bfdReader;
+    private Token token;
     private ArrayList<Token> tokens = new ArrayList<>();
 
     private int curChar = ' ';
-    private boolean stop = false;
-    private boolean isAnnotation = false;
-    //private StringBuilder token = new StringBuilder();
 
     public Lexer(String path) {
         this.path = path;
+        token = new Token(TokenType.ERR, null);
     }
 
     public ArrayList<Token> analyse() {
@@ -31,7 +29,6 @@ public class Lexer {
         try {
             reader = new FileReader(input);
             bfdReader = new BufferedReader(reader);
-            Token token;
             while ((token = getNextToken()).getType() != TokenType.ERR && token.getType() != TokenType.EOF)
                 tokens.add(token);
             bfdReader.close();
@@ -39,7 +36,10 @@ public class Lexer {
         } catch (IOException e) {
             System.out.println(e.getMessage());
         }
-        return tokens;
+        if (token.getType() == TokenType.ERR)
+            return null;
+        else
+            return tokens;
     }
 
     private Token getNextToken() throws IOException {
@@ -98,7 +98,8 @@ public class Lexer {
             lexNumber(token);
         } else if (isOperator(curChar)) {
             lexOperator(token);
-        }
+        } else if (curChar == -1)
+            token.setType(TokenType.EOF);
         return token;
     }
 
@@ -123,14 +124,14 @@ public class Lexer {
     }
 
     private boolean isOperator(int ch) {
-        return OpMap.isOp(Character.toString((char) ch));
+        return OpMap.getInstance().isOp(Character.toString((char) ch));
     }
 
     private void lexIdentifier(Token token) throws IOException {
         StringBuilder value = new StringBuilder();
-        value.append(curChar);
+        value.append((char) curChar);
         while (isLetter(curChar = bfdReader.read()))
-            value.append(curChar);
+            value.append((char) curChar);
 
         switch (value.toString()) {
             case "int":
@@ -154,29 +155,39 @@ public class Lexer {
 
     private void lexNumber(Token token) throws IOException {
         StringBuilder value = new StringBuilder();
-        value.append(curChar);
+        value.append((char) curChar);
         bfdReader.mark(1);
         if (curChar == '0') {
             curChar = bfdReader.read();
             if (curChar == 'x' || curChar == 'X') {
+                // 16进制
                 curChar = bfdReader.read();
                 if (isDigit(curChar)) {
                     bfdReader.reset();
                     curChar = bfdReader.read();
-                    value.append(curChar);
+                    value.append((char) curChar);
                     while (isHexDigit((curChar = bfdReader.read())))
-                        value.append(curChar);
+                        value.append((char) curChar);
+                    // 转10进制
+                    int t = Integer.parseInt(value.substring(2), 16);
+                    value.delete(0, value.length());
+                    value.append(t);
                 } else {
                     bfdReader.reset();
                     curChar = bfdReader.read();
                 }
             } else {
+                // 8进制
                 while (isOctalDigit((curChar = bfdReader.read())))
-                    value.append(curChar);
+                    value.append((char) curChar);
+                // 转8进制
+                int t = Integer.parseInt(value.substring(1), 8);
+                value.delete(0, value.length());
+                value.append(t);
             }
         } else {
-            while (isDigit(curChar)) {
-                value.append(curChar);
+            while (isDigit(curChar = bfdReader.read())) {
+                value.append((char) curChar);
             }
         }
         token.setType(TokenType.NUMBER);
@@ -184,7 +195,8 @@ public class Lexer {
     }
 
     private void lexOperator(Token token) throws IOException {
-        token.setType(OpMap.getOpType(Character.toString((char) curChar)));
+        token.setType(OpMap.getInstance().getOpType(Character.toString((char) curChar)));
         token.setValue(String.valueOf((char) curChar));
+        curChar = bfdReader.read();
     }
 }

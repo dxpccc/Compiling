@@ -4,6 +4,7 @@ import java.util.HashMap;
 
 public class OpMap {
     private static HashMap<String, TokenType> map = new HashMap<>();
+    private static OpMap instance = null;
 
     private OpMap() {
         map.put("(", TokenType.PAREN_L);
@@ -15,11 +16,17 @@ public class OpMap {
         map.put("-", TokenType.MINUS);
     }
 
-    public static TokenType getOpType(String op) {
+    public static OpMap getInstance() {
+        if (instance == null)
+            instance = new OpMap();
+        return instance;
+    }
+
+    public TokenType getOpType(String op) {
         return map.get(op);
     }
 
-    public static boolean isOp(String op) {
+    public boolean isOp(String op) {
         return map.containsKey(op);
     }
 }

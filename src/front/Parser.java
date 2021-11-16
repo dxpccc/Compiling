@@ -1,96 +1,86 @@
 package front;
 
+import util.AST.*;
+import util.Token;
+import util.TokenType;
+
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Stack;
 
 public class Parser {
-    private ArrayList<String> productions = new ArrayList<>();
-    private HashMap<String, Integer> terminal = new HashMap<>();
-    private HashMap<String, Integer> non_terminal = new HashMap<>();
+    private ArrayList<Token> tokens;
+    private int index;
 
-    private void init() {
-
+    public Parser(ArrayList<Token> tokens) {
+        this.tokens = tokens;
+        index = -1;
     }
 
-    private int getIndexOfT(String string) {
-        return terminal.get(string);
+    public Parser() {
+        this(null);
     }
 
-    private int getIndexOfNT(String string) {
-        return non_terminal.get(string);
+    private Token getNextToken() {
+        if (index < tokens.size() - 1) {
+            index++;
+            return tokens.get(index);
+        } else
+            return null;
     }
 
-    private String getWord(int code) {
-        return vocabulary.get(code);
+    public CompUnitAST analyse() {
+        return parseCompUnit();
     }
 
-    public boolean analyse(ArrayList<String> input) {
-        boolean stop = false;
-        init();
-        ArrayList<String> queue = read(input);        // 待分析输入串
-        if (queue != null) {
-            int index = 0;
-            int len = queue.size();
-            Stack<String> stack = new Stack<>();        // 符号栈
-            stack.push("#");
-            stack.push("CompUnit");
-
-            while (!stack.empty() && index < len) {
-                String left = stack.peek();
-                String right = queue.get(index);
-                // System.out.println(stack + "\t" + queue);
-                if (isNonTerminal(left)) {
-                    // 匹配到非终结符，查LL1分析表，表达式倒序入栈
-                    String production = productions.get(LL1_table[getIndexOfNT(left)][getIndexOfT(right)]); // 查询LL1分析表
-                    if (production.equals("err")) {
-                        // err跳出
-                        stop = true;
-                        break;
-                    } else {
-                        stack.pop();
-                        String[] strings = production.split("\\s+");
-                        for (int i = strings.length - 1; i > 0; --i)
-                            // 倒序入栈
-                            stack.push(strings[i]);
-                    }
-                } else if (isTerminal(right) && match(left, right)) {
-                    stack.pop();
-                    ++index;
-                } else {
-                    stop = true;
-                    break;
-                }
-            }
-        }
-        return !stop;
+    public NumberAST parseNumber(int number) {
+        return new NumberAST(number);
     }
 
-    /*
-    * 输入词法分析结果，输出对应单词表中对应类别
-    * */
-    private ArrayList<String> read(ArrayList<String> input) {
-        ArrayList<String> output = null;
-        if (input != null) {
-            output = new ArrayList<>();
-            for (String s : input) {
-                String[] strs = s.split("\\s+");
-                output.add(getWord(Integer.parseInt(strs[0])));
-            }
-            output.add("#");
-        }
-        return output;
+    public IdentityAST parseIdent(String ident) {
+        return new IdentityAST(ident);
     }
 
-    private boolean match(String left, String right) {
-        return left.equals(right);
+    public StmtAST parseStmt() {
+        Token token = getNextToken();
+        if (token != null && token.getType() == TokenType.RETURN) {
+            token = getNextToken();
+            if (token.getType() == TokenType.NUMBER) {
+                StmtAST stmtAST = new StmtAST(token.getValue());
+                token = getNextToken();
+                if (token.getType() == TokenType.SEMICOLON)
+                    return stmtAST;
+                else
+                    return null;
+            } else
+                return null;
+        } else
+            return null;
     }
 
-    private boolean isTerminal(String string) {
-        return terminal.get(string) != null;
+    public BlockAST parseBlock() {
+        Token token = getNextToken();
+        if (token != null && token.getType() == TokenType.BRACE_L) {
+            BlockAST blockAST = new BlockAST(parseStmt());
+            token = getNextToken();
+            if (token.getType() == TokenType.BRACE_R)
+                return blockAST;
+            else
+                return null;
+        } else
+            return null;
     }
 
-    private boolean isNonTerminal(String string) {
-        return non_terminal.get(string) != null;
+    public FuncDefAST parseFuncDef() {
+        Token token = getNextToken();
+        if (token != null && token.getType() == TokenType.INT) {
+            if (getNextToken().getType() == TokenType.MAIN && getNextToken().getType() == TokenType.PAREN_L && getNextToken().getType() == TokenType.PAREN_R)
+                return new FuncDefAST("int", "main", parseBlock());
+            else
+                return null;
+        } else
+            return null;
+    }
+
+    public CompUnitAST parseCompUnit() {
+        return new CompUnitAST(parseFuncDef());
     }
 }
