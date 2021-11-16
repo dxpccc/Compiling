@@ -78,10 +78,9 @@ public class Parser {
     public BlockAST parseBlock() {
         Token token = getNextToken();
         if (token != null && token.getType() == TokenType.BRACE_L) {
-            BlockAST blockAST = new BlockAST(parseStmt());
-            token = getNextToken();
-            if (token.getType() == TokenType.BRACE_R)
-                return blockAST;
+            StmtAST stmtAST = parseStmt();
+            if (stmtAST != null && getNextToken().getType() == TokenType.BRACE_R)
+                return new BlockAST(stmtAST);
             else
                 return null;
         } else
