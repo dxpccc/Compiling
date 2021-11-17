@@ -10,7 +10,7 @@ public class UnaryExpAST implements BaseAST {
     }
 
     public UnaryExpAST() {
-        this("+", null);
+        this(null, null);
     }
 
     @Override
@@ -18,19 +18,11 @@ public class UnaryExpAST implements BaseAST {
         String last = ast.generateIR();
         char last_op = last.charAt(0);
         String res = last;
-        switch (op) {
-            case "+":
-                res = last;
-                break;
-            case "-":
-                if (last_op == '-')
-                    res = "+" + last.substring(1);
-                else if (last_op == '+')
-                    res = "-" + last.substring(1);
-                else if (Character.isDigit(last_op))
-                    res = "-" + last;
-            default:
-                break;
+        if (op != null && op.equals("-")) {
+            if (last_op == '-')
+                res = last.substring(1);
+            else
+                res = "-" + last;
         }
         return res;
     }

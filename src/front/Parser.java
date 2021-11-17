@@ -46,7 +46,7 @@ public class Parser {
             return null;
         else if (token.getType() == TokenType.NUMBER) {
             NumberAST numberAST = new NumberAST(token.getValue());
-            return new UnaryExpAST("+", numberAST);
+            return new UnaryExpAST(null, numberAST);
         } else if (token.getType() == TokenType.PLUS || token.getType() == TokenType.MINUS) {
             return new UnaryExpAST(token.getValue(), parseUnaryExp());
         } else if (token.getType() == TokenType.PAREN_L) {
