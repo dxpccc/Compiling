@@ -1,10 +1,10 @@
 package util.AST;
 
 public class StmtAST implements BaseAST {
-    private final String number;
+    private final UnaryExpAST ast;
 
-    public StmtAST(String number) {
-        this.number = number;
+    public StmtAST(UnaryExpAST ast) {
+        this.ast = ast;
     }
 
     public StmtAST() {
@@ -13,6 +13,6 @@ public class StmtAST implements BaseAST {
 
     @Override
     public String generateIR() {
-        return "\tret " + "i32 " + number + ";\n";
+        return "\tret " + "i32 " + ast.generateIR() + ";\n";
     }
 }

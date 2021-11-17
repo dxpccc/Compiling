@@ -1,5 +1,6 @@
 package front;
 
+import javafx.beans.binding.NumberBinding;
 import util.AST.*;
 import util.Token;
 import util.TokenType;
@@ -39,21 +40,23 @@ public class Parser {
         return new IdentityAST(ident);
     }
 
-    public BaseAST parseUnaryExp() {
+    public UnaryExpAST parseUnaryExp() {
         Token token = getNextToken();
 
         if (token == null)
             return null;
-        else if (token.getType() == TokenType.PLUS || token.getType() == TokenType.MINUS) {
+        else if (token.getType() == TokenType.NUMBER) {
+            NumberAST numberAST = new NumberAST(token.getValue());
+            return new UnaryExpAST("+", numberAST);
+        } else if (token.getType() == TokenType.PLUS || token.getType() == TokenType.MINUS) {
             return new UnaryExpAST(token.getValue(), parseUnaryExp());
         } else if (token.getType() == TokenType.PAREN_L) {
-            BaseAST ast = parseUnaryExp();
-            if (getNextToken().getType() != TokenType.PAREN_R)
+            UnaryExpAST ast = parseUnaryExp();
+            token = getNextToken();
+            if (token.getType() != TokenType.PAREN_R)
                 return null;
             else
                 return ast;
-        } else if (token.getType() == TokenType.NUMBER) {
-            return parseNumber(token.getValue());
         } else
             return null;
     }
@@ -61,14 +64,10 @@ public class Parser {
     public StmtAST parseStmt() {
         Token token = getNextToken();
         if (token != null && token.getType() == TokenType.RETURN) {
+            UnaryExpAST unaryExpAST = parseUnaryExp();
             token = getNextToken();
-            if (token != null && token.getType() == TokenType.NUMBER) {
-                StmtAST stmtAST = new StmtAST(token.getValue());
-                token = getNextToken();
-                if (token.getType() == TokenType.SEMICOLON)
-                    return stmtAST;
-                else
-                    return null;
+            if (token != null && token.getType() == TokenType.SEMICOLON) {
+                return new StmtAST(unaryExpAST);
             } else
                 return null;
         } else
