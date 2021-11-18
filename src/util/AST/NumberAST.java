@@ -1,6 +1,6 @@
 package util.AST;
 
-public class NumberAST implements BaseAST {
+public class NumberAST {
     private String number;
 
     public NumberAST(String number) {
@@ -9,10 +9,5 @@ public class NumberAST implements BaseAST {
 
     public NumberAST() {
         this(null);
-    }
-
-    @Override
-    public String generateIR() {
-        return number;
     }
 }

@@ -1,10 +1,13 @@
 package util.AST;
 
-public class ReturnAST implements BaseAST {
-    private int number;
+public class ReturnAST {
+    private AddExpAST ast;
 
-    @Override
-    public String generateIR() {
-        return null;
+    public ReturnAST(AddExpAST ast) {
+        this.ast = ast;
+    }
+
+    public AddExpAST getAddExp() {
+        return ast;
     }
 }

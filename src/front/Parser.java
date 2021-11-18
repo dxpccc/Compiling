@@ -27,135 +27,20 @@ public class Parser {
             return null;
     }
 
+    private void rollBack() {
+        --index;
+    }
+
     public CompUnitAST analyse() {
         return parseCompUnit();
     }
 
-    public NumberAST parseNumber(String number) {
-        return new NumberAST(number);
-    }
-
-    public IdentityAST parseIdent(String ident) {
-        return new IdentityAST(ident);
-    }
-
-    /*
-    * Add  -> Mul RAdd
-    * RAdd -> ('+'|'-') RAdd
-    *      -> eps
-    * */
-    public AddExpAST parseAddExp() {
-        MulExpAST mul;
-        RAddExpAST r_add;
-        if ((mul = parseMulExp()) == null)
-            return null;
-        else if ((r_add = parseRAddExp()) == null)
+    public CompUnitAST parseCompUnit() {
+        FuncDefAST funcDefAST = parseFuncDef();
+        if (funcDefAST == null)
             return null;
         else
-            return new AddExpAST(mul, r_add);
-    }
-
-    public RAddExpAST parseRAddExp() {
-        int mark = index;
-        Token token = getNextToken();
-        if (token != null && (token.getType() == TokenType.ADD || token.getType() == TokenType.MIN)) {
-            UnaryExpAST unary;
-            RAddExpAST r_add;
-            if ((unary = parseUnaryExp()) == null) {
-                index = mark;
-                return null;
-            } else if ((r_add = parseRAddExp()) == null) {
-                return new RAddExpAST(token.getValue(), unary, null);
-            } else
-                return new RAddExpAST(token.getValue(), unary, r_add);
-        } else {
-            index = mark;
-            return null;
-        }
-    }
-
-    /*
-    * Mul  -> Unary RMul
-    * RMul -> ('*'|'/'|'%') Unary RMul
-    *      -> eps
-    * */
-    public MulExpAST parseMulExp() {
-        UnaryExpAST unary;
-        RMulExpAST r_mul;
-        if ((unary = parseUnaryExp()) == null)
-            return null;
-        else if ((r_mul = parseRMulExp()) == null)
-            return null;
-        else
-            return new MulExpAST(unary, r_mul);
-    }
-
-    public RMulExpAST parseRMulExp() {
-        int mark = index;
-        Token token = getNextToken();
-        if (token != null && (token.getType() == TokenType.MUL || token.getType() == TokenType.DIV || token.getType() == TokenType.MOD)) {
-            UnaryExpAST unary;
-            RMulExpAST r_mul;
-            if ((unary = parseUnaryExp()) == null) {
-                index = mark;
-                return null;
-            } else if ((r_mul = parseRMulExp()) == null) {
-                return new RMulExpAST(token.getValue(), unary, null);
-            } else
-                return new RMulExpAST(token.getValue(), unary, r_mul);
-        } else {
-            index = mark;
-            return null;
-        }
-    }
-
-    public UnaryExpAST parseUnaryExp() {
-        Token token = getNextToken();
-
-        if (token == null)
-            return null;
-        else if (token.getType() == TokenType.NUMBER) {
-            NumberAST numberAST = new NumberAST(token.getValue());
-            return new UnaryExpAST(null, numberAST);
-        } else if (token.getType() == TokenType.ADD || token.getType() == TokenType.MIN) {
-            return new UnaryExpAST(token.getValue(), parseUnaryExp());
-        } else if (token.getType() == TokenType.PAREN_L) {
-            AddExpAST ast;
-            Token next_token;
-            if ((ast = parseAddExp()) == null)
-                return null;
-            else if ((next_token = getNextToken()).getType() != TokenType.PAREN_R)
-                return null;
-            else
-                return new UnaryExpAST(next_token.getValue(), ast);
-        } else
-            return null;
-    }
-
-    public StmtAST parseStmt() {
-        Token token = getNextToken();
-        if (token != null && token.getType() == TokenType.RETURN) {
-            AddExpAST addExpAST = parseAddExp();
-            if (addExpAST == null)
-                return null;
-            else if ((token = getNextToken()) != null && token.getType() == TokenType.SEMICOLON) {
-                return new StmtAST(addExpAST);
-            } else
-                return null;
-        } else
-            return null;
-    }
-
-    public BlockAST parseBlock() {
-        Token token = getNextToken();
-        if (token != null && token.getType() == TokenType.BRACE_L) {
-            StmtAST stmtAST = parseStmt();
-            if (stmtAST != null && getNextToken().getType() == TokenType.BRACE_R)
-                return new BlockAST(stmtAST);
-            else
-                return null;
-        } else
-            return null;
+            return new CompUnitAST(funcDefAST);
     }
 
     public FuncDefAST parseFuncDef() {
@@ -174,11 +59,160 @@ public class Parser {
             return null;
     }
 
-    public CompUnitAST parseCompUnit() {
-        FuncDefAST funcDefAST = parseFuncDef();
-        if (funcDefAST == null)
+    public BlockAST parseBlock() {
+        Token token = getNextToken();
+        if (token != null && token.getType() == TokenType.BRACE_L) {
+            StmtAST stmtAST = parseStmt();
+            if (stmtAST != null && getNextToken().getType() == TokenType.BRACE_R)
+                return new BlockAST(stmtAST);
+            else
+                return null;
+        } else
             return null;
-        else
-            return new CompUnitAST(funcDefAST);
+    }
+
+    public StmtAST parseStmt() {
+        Token token = getNextToken();
+        if (token != null && token.getType() == TokenType.RETURN) {
+            AddExpAST addExpAST = parseAddExp();
+            if (addExpAST == null)
+                return null;
+            else if ((token = getNextToken()) != null && token.getType() == TokenType.SEMICOLON) {
+                return new StmtAST(StmtAST.Type.RETURN, new ReturnAST(addExpAST));
+            } else
+                return null;
+        } else
+            return null;
+    }
+
+    /*
+    * Add  -> Mul RAdd
+    * RAdd -> ('+'|'-') Mul RAdd
+    *      -> eps
+    *
+    * Add  -> Mul {('+'|'-') Mul}
+    * */
+    public AddExpAST parseAddExp() {
+        MulExpAST LHS;
+        AddExpAST RHS;
+        Token token;
+        if ((LHS = parseMulExp()) == null) {
+            return null;
+        } else if ((token = getNextToken()) == null) {
+            return new AddExpAST(null, LHS, null);
+        } else if (token.getType() != TokenType.ADD && token.getType() != TokenType.MIN) {
+            rollBack();
+            return new AddExpAST(null, LHS, null);
+        } else if ((RHS = parseAddExp()) == null) {
+            return null;
+        } else {
+            return new AddExpAST(token.getValue(), LHS, RHS);
+        }
+    }
+
+    /*
+    * Mul  -> Unary RMul
+    * RMul -> ('*'|'/'|'%') Unary RMul
+    *      -> eps
+    *
+    * Mul  -> Unary {('*'|'/'|'%') Unary}
+    * */
+    public MulExpAST parseMulExp() {
+        UnaryExpAST LHS;
+        MulExpAST RHS;
+        Token token;
+        if ((LHS = parseUnaryExp()) == null) {
+            return null;
+        } else if ((token = getNextToken()) == null) {
+            return new MulExpAST(null, LHS, null);
+        } else if (token.getType() != TokenType.MUL && token.getType() != TokenType.DIV && token.getType() != TokenType.MOD) {
+            rollBack();
+            return new MulExpAST(null, LHS, null);
+        } else if ((RHS = parseMulExp()) == null) {
+            return null;
+        } else {
+            return new MulExpAST(token.getValue(), LHS, RHS);
+        }
+    }
+
+    /*public RMulExpAST parseRMulExp() {
+        int mark = index;
+        Token token = getNextToken();
+        if (token != null && (token.getType() == TokenType.MUL || token.getType() == TokenType.DIV || token.getType() == TokenType.MOD)) {
+            UnaryExpAST unary;
+            RMulExpAST r_mul;
+            if ((unary = parseUnaryExp()) == null) {
+                index = mark;
+                return null;
+            } else if ((r_mul = parseRMulExp()) == null) {
+                return new RMulExpAST(token.getValue(), unary, null);
+            } else
+                return new RMulExpAST(token.getValue(), unary, r_mul);
+        } else {
+            index = mark;
+            return null;
+        }
+    }*/
+
+    /*
+    * Unary -> {UnaryOp} Primary
+    * */
+    public UnaryExpAST parseUnaryExp() {
+        Token token;
+        String op;
+        PrimaryExpAST primary;
+        token = getNextToken();
+        op = "+";
+        while (token != null && (token.getType() == TokenType.ADD || token.getType() == TokenType.MIN)) {
+            String opp = token.getValue();
+            if (opp.equals("-")) {
+                if (op.equals("-"))
+                    op = "+";
+                else
+                    op = "-";
+            }
+            token = getNextToken();
+        }
+        if (token == null) {
+            return null;
+        } else {
+            rollBack();
+            primary = parsePrimaryExp();
+            if (primary == null) {
+                return null;
+            } else {
+                return new UnaryExpAST(op, primary);
+            }
+        }
+    }
+
+    public PrimaryExpAST parsePrimaryExp() {
+        Token token = getNextToken();
+        if (token == null) {
+            return null;
+        } else if (token.getType() == TokenType.NUMBER){
+            return new PrimaryExpAST(PrimaryExpAST.Type.NUMBER, token.getValue(), null);
+        } else if (token.getType() == TokenType.PAREN_L) {
+            AddExpAST add = parseAddExp();
+            if (add == null) {
+                return null;
+            } else if ((token = getNextToken()) == null) {
+                return null;
+            } else if (token.getType() != TokenType.PAREN_R) {
+                return null;
+            } else {
+                return new PrimaryExpAST(PrimaryExpAST.Type.EXP, null, add);
+            }
+        } else {
+            return null;
+        }
+    }
+
+    public NumberAST parseNumber(String number) {
+        return new NumberAST(number);
+    }
+
+    public IdentityAST parseIdent(String ident) {
+        return new IdentityAST(ident);
     }
 }

@@ -1,6 +1,6 @@
 package util.AST;
 
-public class CompUnitAST implements BaseAST {
+public class CompUnitAST {
     private FuncDefAST ast;
 
     public CompUnitAST(FuncDefAST ast) {
@@ -11,8 +11,7 @@ public class CompUnitAST implements BaseAST {
         this(null);
     }
 
-    @Override
-    public String generateIR() {
-        return ast.generateIR();
+    public FuncDefAST getFuncDef() {
+        return ast;
     }
 }

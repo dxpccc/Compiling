@@ -1,6 +1,6 @@
 package util.AST;
 
-public class IdentityAST implements BaseAST {
+public class IdentityAST {
     private String identity;
 
     public IdentityAST(String identity) {
@@ -9,10 +9,5 @@ public class IdentityAST implements BaseAST {
 
     public IdentityAST() {
         this(null);
-    }
-
-    @Override
-    public String generateIR() {
-        return identity;
     }
 }

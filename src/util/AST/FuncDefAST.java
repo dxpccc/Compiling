@@ -1,6 +1,6 @@
 package util.AST;
 
-public class FuncDefAST implements BaseAST {
+public class FuncDefAST{
     private final String func_type;
     private final String ident;
     private final BlockAST ast;
@@ -15,8 +15,15 @@ public class FuncDefAST implements BaseAST {
         this(null, null, null);
     }
 
-    @Override
-    public String generateIR() {
-        return "define " + "i32 " + "@" + ident + "()" + ast.generateIR();
+    public String getFuncType() {
+        return func_type;
+    }
+
+    public String getIdent() {
+        return ident;
+    }
+
+    public BlockAST getBlock() {
+        return ast;
     }
 }

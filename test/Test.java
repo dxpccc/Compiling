@@ -4,7 +4,6 @@ import mid.IRBuilder;
 import util.AST.CompUnitAST;
 import util.Token;
 
-import java.io.*;
 import java.util.ArrayList;
 
 public class Test {

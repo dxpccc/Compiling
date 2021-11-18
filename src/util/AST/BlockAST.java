@@ -1,14 +1,13 @@
 package util.AST;
 
-public class BlockAST implements BaseAST {
+public class BlockAST {
     private StmtAST ast;
 
     public BlockAST(StmtAST ast) {
         this.ast = ast;
     }
 
-    @Override
-    public String generateIR() {
-        return "{\n" + ast.generateIR() + "}\n";
+    public StmtAST getStmt() {
+        return ast;
     }
 }

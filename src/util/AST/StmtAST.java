@@ -1,18 +1,19 @@
 package util.AST;
 
-public class StmtAST implements BaseAST {
-    private final AddExpAST ast;
+public class StmtAST {
+    public enum Type {
+        RETURN
+    }
 
-    public StmtAST(AddExpAST ast) {
+    public final Type type;
+    private final ReturnAST ast;
+
+    public StmtAST(Type type, ReturnAST ast) {
+        this.type = type;
         this.ast = ast;
     }
 
-    public StmtAST() {
-        this(null);
-    }
-
-    @Override
-    public String generateIR() {
-        return "\tret " + "i32 " + ast.generateIR() + ";\n";
+    public ReturnAST getReturn() {
+        return ast;
     }
 }

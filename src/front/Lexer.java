@@ -43,7 +43,7 @@ public class Lexer {
     }
 
     private Token getNextToken() throws IOException {
-        Token token = null;
+        Token token;
         while (isBlank(curChar))        // 读掉空白
             curChar = bfdReader.read();
 
@@ -83,6 +83,7 @@ public class Lexer {
                 // 不是注释，重置
                 bfdReader.reset();
                 curChar = mark;
+                token = getToken();
             }
         } else
             token = getToken();
