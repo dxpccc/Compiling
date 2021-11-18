@@ -1,3 +1,5 @@
 define i32 @main(){
-	ret i32 -123;
+	%1 = add i32 0, 123
+	%2 = add i32 0, %1
+	ret i32 %2
 }
