@@ -1,9 +1,9 @@
 package util.AST;
 
 public class StmtAST implements BaseAST {
-    private final UnaryExpAST ast;
+    private final AddExpAST ast;
 
-    public StmtAST(UnaryExpAST ast) {
+    public StmtAST(AddExpAST ast) {
         this.ast = ast;
     }
 

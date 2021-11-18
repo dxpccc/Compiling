@@ -39,6 +39,76 @@ public class Parser {
         return new IdentityAST(ident);
     }
 
+    /*
+    * Add  -> Mul RAdd
+    * RAdd -> ('+'|'-') RAdd
+    *      -> eps
+    * */
+    public AddExpAST parseAddExp() {
+        MulExpAST mul;
+        RAddExpAST r_add;
+        if ((mul = parseMulExp()) == null)
+            return null;
+        else if ((r_add = parseRAddExp()) == null)
+            return null;
+        else
+            return new AddExpAST(mul, r_add);
+    }
+
+    public RAddExpAST parseRAddExp() {
+        int mark = index;
+        Token token = getNextToken();
+        if (token != null && (token.getType() == TokenType.ADD || token.getType() == TokenType.MIN)) {
+            UnaryExpAST unary;
+            RAddExpAST r_add;
+            if ((unary = parseUnaryExp()) == null) {
+                index = mark;
+                return null;
+            } else if ((r_add = parseRAddExp()) == null) {
+                return new RAddExpAST(token.getValue(), unary, null);
+            } else
+                return new RAddExpAST(token.getValue(), unary, r_add);
+        } else {
+            index = mark;
+            return null;
+        }
+    }
+
+    /*
+    * Mul  -> Unary RMul
+    * RMul -> ('*'|'/'|'%') Unary RMul
+    *      -> eps
+    * */
+    public MulExpAST parseMulExp() {
+        UnaryExpAST unary;
+        RMulExpAST r_mul;
+        if ((unary = parseUnaryExp()) == null)
+            return null;
+        else if ((r_mul = parseRMulExp()) == null)
+            return null;
+        else
+            return new MulExpAST(unary, r_mul);
+    }
+
+    public RMulExpAST parseRMulExp() {
+        int mark = index;
+        Token token = getNextToken();
+        if (token != null && (token.getType() == TokenType.MUL || token.getType() == TokenType.DIV || token.getType() == TokenType.MOD)) {
+            UnaryExpAST unary;
+            RMulExpAST r_mul;
+            if ((unary = parseUnaryExp()) == null) {
+                index = mark;
+                return null;
+            } else if ((r_mul = parseRMulExp()) == null) {
+                return new RMulExpAST(token.getValue(), unary, null);
+            } else
+                return new RMulExpAST(token.getValue(), unary, r_mul);
+        } else {
+            index = mark;
+            return null;
+        }
+    }
+
     public UnaryExpAST parseUnaryExp() {
         Token token = getNextToken();
 
@@ -47,15 +117,17 @@ public class Parser {
         else if (token.getType() == TokenType.NUMBER) {
             NumberAST numberAST = new NumberAST(token.getValue());
             return new UnaryExpAST(null, numberAST);
-        } else if (token.getType() == TokenType.PLUS || token.getType() == TokenType.MINUS) {
+        } else if (token.getType() == TokenType.ADD || token.getType() == TokenType.MIN) {
             return new UnaryExpAST(token.getValue(), parseUnaryExp());
         } else if (token.getType() == TokenType.PAREN_L) {
-            UnaryExpAST ast = parseUnaryExp();
-            token = getNextToken();
-            if (token.getType() != TokenType.PAREN_R)
+            AddExpAST ast;
+            Token next_token;
+            if ((ast = parseAddExp()) == null)
+                return null;
+            else if ((next_token = getNextToken()).getType() != TokenType.PAREN_R)
                 return null;
             else
-                return ast;
+                return new UnaryExpAST(next_token.getValue(), ast);
         } else
             return null;
     }
@@ -63,10 +135,11 @@ public class Parser {
     public StmtAST parseStmt() {
         Token token = getNextToken();
         if (token != null && token.getType() == TokenType.RETURN) {
-            UnaryExpAST unaryExpAST = parseUnaryExp();
-            token = getNextToken();
-            if (token != null && token.getType() == TokenType.SEMICOLON) {
-                return new StmtAST(unaryExpAST);
+            AddExpAST addExpAST = parseAddExp();
+            if (addExpAST == null)
+                return null;
+            else if ((token = getNextToken()) != null && token.getType() == TokenType.SEMICOLON) {
+                return new StmtAST(addExpAST);
             } else
                 return null;
         } else

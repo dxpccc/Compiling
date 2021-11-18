@@ -6,6 +6,7 @@ import java.io.*;
 
 public class IRBuilder {
     private String path;
+    private static int reg_code = 0;
 
     public IRBuilder(String path) {
         this.path = path;
@@ -13,6 +14,10 @@ public class IRBuilder {
 
     public IRBuilder() {
         this(null);
+    }
+
+    public static int getReg() {
+        return ++reg_code;
     }
 
     public void generateIR(CompUnitAST ast) {

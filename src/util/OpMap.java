@@ -12,8 +12,11 @@ public class OpMap {
         map.put("{", TokenType.BRACE_L);
         map.put("}", TokenType.BRACE_R);
         map.put(";", TokenType.SEMICOLON);
-        map.put("+", TokenType.PLUS);
-        map.put("-", TokenType.MINUS);
+        map.put("+", TokenType.ADD);
+        map.put("-", TokenType.MIN);
+        map.put("*", TokenType.MUL);
+        map.put("/", TokenType.DIV);
+        map.put("%", TokenType.MOD);
     }
 
     public static OpMap getInstance() {

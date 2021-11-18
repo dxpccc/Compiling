@@ -13,6 +13,9 @@ public enum TokenType {
     BRACE_L,
     BRACE_R,
     SEMICOLON,
-    PLUS,
-    MINUS
+    ADD,
+    MIN,
+    MUL,
+    DIV,
+    MOD
 }
