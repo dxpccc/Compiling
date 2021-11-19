@@ -1,5 +1,14 @@
 define i32 @main(){
-	%1 = add i32 0, 123
+	%1 = add i32 0, 16
 	%2 = add i32 0, %1
-	ret i32 %2
+	%3 = add i32 0, 5
+	%4 = sub i32 0, %3
+	%5 = sub i32 %2, %4
+	%6 = add i32 0, 5
+	%7 = add i32 0, %6
+	%8 = add i32 %5, %7
+	%9 = add i32 0, 21
+	%10 = sub i32 0, %9
+	%11 = add i32 %8, %10
+	ret i32 %11
 }

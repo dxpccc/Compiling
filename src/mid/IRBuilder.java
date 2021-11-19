@@ -7,7 +7,7 @@ import java.io.*;
 public class IRBuilder {
     private String path;
     private static int reg_code = 0;
-    private String ir = "";
+    private StringBuilder ir = new StringBuilder();
 
     public IRBuilder(String path) {
         this.path = path;
@@ -29,7 +29,7 @@ public class IRBuilder {
             writer = new FileWriter(output);
             bfdWriter = new BufferedWriter(writer);
             visitCompUnit(ast);
-            bfdWriter.write(ir);
+            bfdWriter.write(ir.toString());
             bfdWriter.close();
             writer.close();
         } catch (IOException e) {
@@ -42,14 +42,14 @@ public class IRBuilder {
     }
 
     private void visitFuncDef(FuncDefAST ast) {
-        ir += "define " + "i32 " + "@" + ast.getIdent() + "()";
+        ir.append("define " + "i32 " + "@").append(ast.getIdent()).append("()");
         visitBlock(ast.getBlock());
     }
 
     private void visitBlock(BlockAST ast) {
-        ir += "{\n";
+        ir.append("{\n");
         visitStmt(ast.getStmt());
-        ir += "}\n";
+        ir.append("}\n");
     }
 
     private void visitStmt(StmtAST ast) {
@@ -59,32 +59,33 @@ public class IRBuilder {
 
     private void visitReturn(ReturnAST ast) {
         String reg = visitAddExp(ast.getAddExp());
-        ir += "\tret i32 " + reg + "\n";
+        ir.append("\tret i32 ").append(reg).append("\n");
     }
 
     private String visitAddExp(AddExpAST ast) {
         String reg, reg_l, reg_r, op;
-        if (ast.op == null) {
-            return visitMulExp(ast.LHS);
-        } else {
-            reg_l = visitMulExp(ast.LHS);
-            reg_r = visitAddExp(ast.RHS);
+        AddExpAST cur_ast = ast;
+        reg = visitMulExp(ast.LHS);
+        while (cur_ast.RHS != null) {
+            reg_l = reg;
+            reg_r = visitMulExp(cur_ast.RHS.LHS);
             reg = getReg();
-            op = ast.op.equals("+") ? "add" : "sub";
-            ir += "\t" + reg + " = " + op + " i32 " + reg_l + ", " + reg_r + "\n";
-            return reg;
+            op = cur_ast.op.equals("+") ? "add" : "sub";
+            ir.append("\t").append(reg).append(" = ").append(op).append(" i32 ").append(reg_l).append(", ").append(reg_r).append("\n");
+            cur_ast = cur_ast.RHS;
         }
+        return reg;
     }
 
     private String visitMulExp(MulExpAST ast) {
         String reg, reg_l, reg_r, op;
-        if (ast.op == null) {
-            return visitUnaryExp(ast.LHS);
-        } else {
-            reg_l = visitUnaryExp(ast.LHS);
-            reg_r = visitMulExp(ast.RHS);
+        MulExpAST cur_ast = ast;
+        reg = visitUnaryExp(ast.LHS);
+        while (cur_ast.RHS != null) {
+            reg_l = reg;
+            reg_r = visitUnaryExp(ast.RHS.LHS);
             reg = getReg();
-            switch (ast.op) {
+            switch (cur_ast.op) {
                 case "*":
                     op = "mul";
                     break;
@@ -98,9 +99,10 @@ public class IRBuilder {
                     op = "";
                     break;
             }
-            ir += "\t" + reg + " = " + op + " i32 " + reg_l + ", " + reg_r + "\n";
-            return reg;
+            ir.append("\t").append(reg).append(" = ").append(op).append(" i32 ").append(reg_l).append(", ").append(reg_r).append("\n");
+            cur_ast = cur_ast.RHS;
         }
+        return reg;
     }
 
     private String visitUnaryExp(UnaryExpAST ast) {
@@ -118,7 +120,7 @@ public class IRBuilder {
         }
         reg_r = visitPrimaryExp(ast.ast);
         reg = getReg();
-        ir += "\t" + reg + " = " + op + " i32 0, " + reg_r + "\n";
+        ir.append("\t").append(reg).append(" = ").append(op).append(" i32 0, ").append(reg_r).append("\n");
         return reg;
     }
 
@@ -126,14 +128,13 @@ public class IRBuilder {
         String reg, reg_r;
         if (ast.type == PrimaryExpAST.Type.NUMBER) {
             reg = getReg();
-            ir += "\t" + reg + " = add i32 0, " + ast.number + "\n";
-            return reg;
+            ir.append("\t").append(reg).append(" = add i32 0, ").append(ast.number).append("\n");
         } else {
             assert ast.ast != null;
             reg_r = visitAddExp(ast.ast);
             reg = getReg();
-            ir += "\t" + reg + " = add i32 0, " + reg_r + "\n";
-            return reg;
+            ir.append("\t").append(reg).append(" = add i32 0, ").append(reg_r).append("\n");
         }
+        return reg;
     }
 }
