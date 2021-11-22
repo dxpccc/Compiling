@@ -94,7 +94,7 @@ public class Lexer {
     private Token getToken() throws IOException {
         Token token = new Token();
 
-        if (isLetter(curChar)) {
+        if (isNondigit(curChar)) {
             lexIdentifier(token);
         } else if (isDigit(curChar)) {
             lexNumber(token);
@@ -129,10 +129,14 @@ public class Lexer {
         return OpMap.getInstance().isOp(Character.toString((char) ch));
     }
 
+    private boolean isNondigit(int ch) {
+        return isLetter(ch) || (char) ch == '_';
+    }
+
     private void lexIdentifier(Token token) throws IOException {
         StringBuilder value = new StringBuilder();
         value.append((char) curChar);
-        while (isLetter(curChar = bfdReader.read()))
+        while (isNondigit(curChar = bfdReader.read()) || isDigit(curChar))
             value.append((char) curChar);
 
         switch (value.toString()) {

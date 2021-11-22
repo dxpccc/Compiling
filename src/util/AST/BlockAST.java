@@ -1,13 +1,11 @@
 package util.AST;
 
+import java.util.ArrayList;
+
 public class BlockAST {
-    private StmtAST ast;
+    public final ArrayList<BlockItemAST> asts;
 
-    public BlockAST(StmtAST ast) {
-        this.ast = ast;
-    }
-
-    public StmtAST getStmt() {
-        return ast;
+    public BlockAST(ArrayList<BlockItemAST> asts) {
+        this.asts = asts;
     }
 }

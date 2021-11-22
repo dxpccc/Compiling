@@ -18,7 +18,7 @@ public class OpMap {
         map.put("*", TokenType.MUL);
         map.put("/", TokenType.DIV);
         map.put("%", TokenType.MOD);
-        map.put("=", TokenType.EQ);
+        map.put("=", TokenType.ASSIGN);
     }
 
     public static OpMap getInstance() {

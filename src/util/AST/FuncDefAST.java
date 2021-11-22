@@ -1,14 +1,14 @@
 package util.AST;
 
 public class FuncDefAST{
-    private final String func_type;
-    private final String ident;
-    private final BlockAST ast;
+    public final String func_type;
+    public final String ident;
+    public final BlockAST block;
 
-    public FuncDefAST(String func_type, String ident, BlockAST ast) {
+    public FuncDefAST(String func_type, String ident, BlockAST block) {
         this.func_type = func_type;
         this.ident = ident;
-        this.ast = ast;
+        this.block = block;
     }
 
     public FuncDefAST() {
@@ -21,9 +21,5 @@ public class FuncDefAST{
 
     public String getIdent() {
         return ident;
-    }
-
-    public BlockAST getBlock() {
-        return ast;
     }
 }

@@ -20,5 +20,5 @@ public enum TokenType {
     MUL,
     DIV,
     MOD,
-    EQ
+    ASSIGN
 }

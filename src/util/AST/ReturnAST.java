@@ -1,13 +1,9 @@
 package util.AST;
 
 public class ReturnAST {
-    private AddExpAST ast;
+    public AddExpAST exp;
 
-    public ReturnAST(AddExpAST ast) {
-        this.ast = ast;
-    }
-
-    public AddExpAST getAddExp() {
-        return ast;
+    public ReturnAST(AddExpAST exp) {
+        this.exp = exp;
     }
 }
