@@ -48,6 +48,7 @@ public class Lexer {
             curChar = bfdReader.read();
 
         if (curChar == '/') {
+            // 清除注释
             bfdReader.mark(1);
             int mark = curChar;
             curChar = bfdReader.read();
@@ -93,7 +94,7 @@ public class Lexer {
     private Token getToken() throws IOException {
         Token token = new Token();
 
-        if (isLetter(curChar)) {
+        if (isNondigit(curChar)) {
             lexIdentifier(token);
         } else if (isDigit(curChar)) {
             lexNumber(token);
@@ -128,13 +129,21 @@ public class Lexer {
         return OpMap.getInstance().isOp(Character.toString((char) ch));
     }
 
+    private boolean isNondigit(int ch) {
+        return isLetter(ch) || (char) ch == '_';
+    }
+
     private void lexIdentifier(Token token) throws IOException {
         StringBuilder value = new StringBuilder();
         value.append((char) curChar);
-        while (isLetter(curChar = bfdReader.read()))
+        while (isNondigit(curChar = bfdReader.read()) || isDigit(curChar))
             value.append((char) curChar);
 
         switch (value.toString()) {
+            case "const":
+                token.setType(TokenType.CONST);
+                token.setValue(value.toString());
+                break;
             case "int":
                 token.setType(TokenType.INT);
                 token.setValue(value.toString());
@@ -148,7 +157,7 @@ public class Lexer {
                 token.setValue(value.toString());
                 break;
             default:
-                token.setType(TokenType.ERR);
+                token.setType(TokenType.IDENT);
                 token.setValue(value.toString());
                 break;
         }

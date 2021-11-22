@@ -2,18 +2,31 @@ package util.AST;
 
 public class StmtAST {
     public enum Type {
+        ASSIGN,
+        EXP,
         RETURN
     }
 
     public final Type type;
-    private final ReturnAST ast;
+    public final ReturnAST return_ast;
+    public final AssignAST assign_ast;
 
-    public StmtAST(Type type, ReturnAST ast) {
+    public StmtAST(Type type, AssignAST assign_ast, ReturnAST return_ast) {
         this.type = type;
-        this.ast = ast;
-    }
-
-    public ReturnAST getReturn() {
-        return ast;
+        switch (type) {
+            case ASSIGN:
+                this.assign_ast = assign_ast;
+                this.return_ast = null;
+                break;
+            case RETURN:
+                this.assign_ast = null;
+                this.return_ast = return_ast;
+                break;
+            case EXP:
+            default:
+                this.assign_ast = null;
+                this.return_ast = null;
+                break;
+        }
     }
 }

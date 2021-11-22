@@ -31,10 +31,20 @@ public class Parser {
         --index;
     }
 
+    private Token nextToken() {
+        if (index < tokens.size() - 1) {
+            return tokens.get(index + 1);
+        } else
+            return null;
+    }
+
     public CompUnitAST analyse() {
         return parseCompUnit();
     }
 
+    /*
+    * CompUnit -> FuncDef
+    * */
     public CompUnitAST parseCompUnit() {
         FuncDefAST funcDefAST = parseFuncDef();
         if (funcDefAST == null)
@@ -43,6 +53,9 @@ public class Parser {
             return new CompUnitAST(funcDefAST);
     }
 
+    /*
+    * FuncDef -> 'int' 'main' '(' ')' Block
+    * */
     public FuncDefAST parseFuncDef() {
         Token token = getNextToken();
         if (token != null && token.getType() == TokenType.INT) {
@@ -59,30 +72,225 @@ public class Parser {
             return null;
     }
 
+    /*
+    * Block -> '{' {ConstDecl | VarDecl | Stmt} '}'
+    * */
     public BlockAST parseBlock() {
         Token token = getNextToken();
         if (token != null && token.getType() == TokenType.BRACE_L) {
-            StmtAST stmtAST = parseStmt();
-            if (stmtAST != null && getNextToken().getType() == TokenType.BRACE_R)
-                return new BlockAST(stmtAST);
+            ArrayList<BlockItemAST> asts = new ArrayList<>();
+            while ((token = nextToken()) != null && token.getType() != TokenType.BRACE_R) {
+                BlockItemAST ast = parseBlockItem();
+                if (ast != null)
+                    asts.add(ast);
+                else
+                    return null;
+            }
+            if (token != null)
+                return new BlockAST(asts);
             else
                 return null;
         } else
             return null;
     }
 
-    public StmtAST parseStmt() {
-        Token token = getNextToken();
-        if (token != null && token.getType() == TokenType.RETURN) {
-            AddExpAST addExpAST = parseAddExp();
-            if (addExpAST == null)
+    /*
+    * BlockItem -> ConstDecl | VarDecl | Stmt
+    * */
+    public BlockItemAST parseBlockItem() {
+        Token token = nextToken();
+        ConstDeclAST const_decl;
+        VarDeclAST var_decl;
+        StmtAST stmt;
+        if (token == null) {
+            return null;
+        } else if (token.getType() == TokenType.CONST) {
+            const_decl = parseConstDecl();
+            if (const_decl == null)
                 return null;
-            else if ((token = getNextToken()) != null && token.getType() == TokenType.SEMICOLON) {
-                return new StmtAST(StmtAST.Type.RETURN, new ReturnAST(addExpAST));
+            else
+                return new BlockItemAST(BlockItemAST.Type.CONSTDECL, const_decl, null, null);
+        } else if (token.getType() == TokenType.INT) {
+            var_decl = parseVarDecl();
+            if (var_decl == null)
+                return null;
+            else
+                return new BlockItemAST(BlockItemAST.Type.VARDECL, null, var_decl, null);
+        } else {
+            stmt = parseStmt();
+            if (stmt == null)
+                return null;
+            else
+                return new BlockItemAST(BlockItemAST.Type.STMT, null, null, stmt);
+        }
+    }
+
+    /*
+    * ConstDecl -> 'const' 'int' ConstDef { ',' ConstDef } ';'
+    * */
+    public ConstDeclAST parseConstDecl() {
+        Token token = getNextToken();
+        if (token == null) {
+            return null;
+        } else if (token.getType() != TokenType.CONST) {
+            return null;
+        } else if ((token = getNextToken()) == null) {
+            return null;
+        } else if (token.getType() != TokenType.INT) {
+            return null;
+        } else {
+            ArrayList<ConstDefAST> asts = new ArrayList<>();
+            ConstDefAST ast = parseConstDef();
+            if (ast == null) {
+                return null;
+            } else {
+                asts.add(ast);
+                while ((token = getNextToken()).getType() == TokenType.COMMA) {
+                    ast = parseConstDef();
+                    if (ast != null)
+                        asts.add(ast);
+                    else
+                        return null;
+                }
+                if (token.getType() != TokenType.SEMICOLON) {
+                    return null;
+                } else {
+                    return new ConstDeclAST(asts);
+                }
+            }
+        }
+    }
+
+    /*
+    * ConstDef -> Ident '=' ConstInitVal
+    * */
+    public ConstDefAST parseConstDef() {
+        Token token;
+        String ident;
+        AddExpAST add;
+        token = getNextToken();
+        if (token == null) {
+            return null;
+        } else if (token.getType() != TokenType.IDENT) {
+            return null;
+        } else {
+            ident = token.getValue();
+            token = getNextToken();
+            if (token.getType() != TokenType.ASSIGN) {
+                return null;
+            } else if ((add = parseAddExp()) == null) {
+                return null;
+            } else {
+                return new ConstDefAST(ident, add);
+            }
+        }
+    }
+
+    /*
+    * VarDecl -> 'int' VarDef { ',' VarDef } ';'
+    * */
+    public VarDeclAST parseVarDecl() {
+        Token token = getNextToken();
+        if (token == null) {
+            return null;
+        } else if (token.getType() != TokenType.INT) {
+            return null;
+        } else {
+            ArrayList<VarDefAST> asts = new ArrayList<>();
+            VarDefAST ast = parseVarDef();
+            if (ast == null) {
+                return null;
+            } else {
+                asts.add(ast);
+                while ((token = getNextToken()).getType() == TokenType.COMMA) {
+                    ast = parseVarDef();
+                    if (ast != null)
+                        asts.add(ast);
+                    else
+                        return null;
+                }
+                if (token.getType() != TokenType.SEMICOLON) {
+                    return null;
+                } else {
+                    return new VarDeclAST(asts);
+                }
+            }
+        }
+    }
+
+    /*
+    * VarDef  -> Ident | Ident '=' InitVal
+    * InitVal -> Exp
+    * */
+    public VarDefAST parseVarDef() {
+        Token token;
+        String ident;
+        AddExpAST add;
+        token = getNextToken();
+        if (token == null) {
+            return null;
+        } else if (token.getType() != TokenType.IDENT) {
+            return null;
+        } else {
+            ident = token.getValue();
+            token = getNextToken();
+            if (token.getType() != TokenType.ASSIGN) {
+                rollBack();
+                return new VarDefAST(VarDefAST.Type.UNINIT, ident, null);
+            } else if ((add = parseAddExp()) == null) {
+                return null;
+            } else {
+                return new VarDefAST(VarDefAST.Type.INIT, ident, add);
+            }
+        }
+    }
+
+    /*
+    * Stmt -> LVal '=' Add ';'
+    *      -> [Add] ';'
+    *      -> 'return' Add ';'
+    * */
+    public StmtAST parseStmt() {
+        String ident;
+        AddExpAST addExpAST;
+        Token token = getNextToken();
+        if (token == null) {
+            return null;
+        } else if (token.getType() == TokenType.IDENT) {
+            ident = token.getValue();
+            token = getNextToken();
+            if (token.getType() != TokenType.ASSIGN) {
+                return null;
+            } else {
+                addExpAST = parseAddExp();
+                if (addExpAST == null) {
+                    return null;
+                } else if ((token = getNextToken()).getType() != TokenType.SEMICOLON) {
+                    return null;
+                } else
+                    return new StmtAST(StmtAST.Type.ASSIGN, new AssignAST(ident, addExpAST), null);
+            }
+        } else if (token.getType() == TokenType.RETURN) {
+            addExpAST = parseAddExp();
+            if (addExpAST == null) {
+                return null;
+            } else if ((token = getNextToken()) != null && token.getType() == TokenType.SEMICOLON) {
+                return new StmtAST(StmtAST.Type.RETURN, null, new ReturnAST(addExpAST));
             } else
                 return null;
-        } else
-            return null;
+        } else {
+            rollBack();
+            addExpAST = parseAddExp();
+            if (addExpAST == null) {
+                return null;
+            } else if ((token = getNextToken()) == null) {
+                return null;
+            } else if (token.getType() != TokenType.SEMICOLON) {
+                return null;
+            } else {
+                return new StmtAST(StmtAST.Type.EXP, null, null);
+            }
+        }
     }
 
     /*
@@ -90,7 +298,7 @@ public class Parser {
     * RAdd -> ('+'|'-') Mul RAdd
     *      -> eps
     *
-    * Add  -> Mul {('+'|'-') Mul}
+    * Add  -> Mul { ('+'|'-') Mul }
     * */
     public AddExpAST parseAddExp() {
         MulExpAST LHS;
@@ -115,7 +323,7 @@ public class Parser {
     * RMul -> ('*'|'/'|'%') Unary RMul
     *      -> eps
     *
-    * Mul  -> Unary {('*'|'/'|'%') Unary}
+    * Mul  -> Unary { ('*'|'/'|'%') Unary }
     * */
     public MulExpAST parseMulExp() {
         UnaryExpAST LHS;
@@ -135,27 +343,8 @@ public class Parser {
         }
     }
 
-    /*public RMulExpAST parseRMulExp() {
-        int mark = index;
-        Token token = getNextToken();
-        if (token != null && (token.getType() == TokenType.MUL || token.getType() == TokenType.DIV || token.getType() == TokenType.MOD)) {
-            UnaryExpAST unary;
-            RMulExpAST r_mul;
-            if ((unary = parseUnaryExp()) == null) {
-                index = mark;
-                return null;
-            } else if ((r_mul = parseRMulExp()) == null) {
-                return new RMulExpAST(token.getValue(), unary, null);
-            } else
-                return new RMulExpAST(token.getValue(), unary, r_mul);
-        } else {
-            index = mark;
-            return null;
-        }
-    }*/
-
     /*
-    * Unary -> {UnaryOp} Primary
+    * Unary -> { UnaryOp } Primary
     * */
     public UnaryExpAST parseUnaryExp() {
         Token token;
@@ -186,12 +375,14 @@ public class Parser {
         }
     }
 
+    /*
+    * Primary -> '(' Exp ')' | LVal | Number
+    * LVal    -> Ident
+    * */
     public PrimaryExpAST parsePrimaryExp() {
         Token token = getNextToken();
         if (token == null) {
             return null;
-        } else if (token.getType() == TokenType.NUMBER){
-            return new PrimaryExpAST(PrimaryExpAST.Type.NUMBER, token.getValue(), null);
         } else if (token.getType() == TokenType.PAREN_L) {
             AddExpAST add = parseAddExp();
             if (add == null) {
@@ -201,8 +392,12 @@ public class Parser {
             } else if (token.getType() != TokenType.PAREN_R) {
                 return null;
             } else {
-                return new PrimaryExpAST(PrimaryExpAST.Type.EXP, null, add);
+                return new PrimaryExpAST(PrimaryExpAST.Type.EXP, add, null, null);
             }
+        } else if (token.getType() == TokenType.IDENT) {
+            return new PrimaryExpAST(PrimaryExpAST.Type.LVAL, null, token.getValue(), null);
+        } else if (token.getType() == TokenType.NUMBER){
+            return new PrimaryExpAST(PrimaryExpAST.Type.NUMBER, null, null, token.getValue());
         } else {
             return null;
         }
