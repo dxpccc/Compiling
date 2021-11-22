@@ -42,17 +42,20 @@ public class IRBuilder {
         return "%" + (++reg_code);
     }
 
-    private String searchIdent(String ident) {
+    private Ident searchIdent(String ident) {
         int len = ident_table_list.size();
-        String reg = null;
-        for (int i = len - 1; i >= 0; ++i) {
-            Ident _ident = ident_table_list.elementAt(i).get(ident);
+        Ident _ident = null;
+        for (int i = len - 1; i >= 0; --i) {
+            _ident = ident_table_list.elementAt(i).get(ident);
             if (_ident != null) {
-                reg = _ident.reg;
                 break;
             }
         }
-        return reg;
+        return _ident;
+    }
+
+    private String searchIdentReg(String ident) {
+        return searchIdent(ident).reg;
     }
 
     public void generateIR(CompUnitAST ast) {
@@ -114,6 +117,8 @@ public class IRBuilder {
 
     private void visitConstDef(ConstDefAST ast) {
         String ident = ast.ident;
+        if (searchIdent(ident) != null)
+            System.exit(-3);
         String reg_l = getReg();
         ir.append("\t").append(reg_l).append(" = ").append("alloca i32\n");
         String reg_r = visitAddExp(ast.init_val);
@@ -129,6 +134,8 @@ public class IRBuilder {
 
     private void visitVarDef(VarDefAST ast) {
         String ident = ast.ident;
+        if (searchIdent(ident) != null)
+            System.exit(-3);
         String reg_l = getReg();
         String reg_r;
         ir.append("\t").append(reg_l).append(" = ").append("alloca i32\n");
@@ -158,7 +165,11 @@ public class IRBuilder {
     private void visitAssign(AssignAST ast) {
         String ident = ast.ident;
         AddExpAST add = ast.exp;
-        String reg_l = searchIdent(ident);
+        String reg_l;
+        Ident _ident = searchIdent(ident);
+        if (_ident.type == Ident.Type.CONSTVAR)
+            System.exit(-3);
+        reg_l = _ident.reg;
         if (reg_l == null) {
             System.exit(-3);
         } else {
@@ -234,7 +245,7 @@ public class IRBuilder {
                 reg = visitAddExp(ast.exp);
                 break;
             case LVAL:
-                reg_r = searchIdent(ast.l_val);
+                reg_r = searchIdentReg(ast.l_val);
                 if (reg_r == null) {
                     System.exit(-3);
                 }
