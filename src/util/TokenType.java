@@ -5,6 +5,7 @@ public enum TokenType {
     EOF,
     IDENT,
     NUMBER,
+    CONST,
     INT,
     MAIN,
     RETURN,
@@ -12,10 +13,12 @@ public enum TokenType {
     PAREN_R,
     BRACE_L,
     BRACE_R,
+    COMMA,
     SEMICOLON,
     ADD,
     MIN,
     MUL,
     DIV,
-    MOD
+    MOD,
+    EQ
 }

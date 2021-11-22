@@ -48,6 +48,7 @@ public class Lexer {
             curChar = bfdReader.read();
 
         if (curChar == '/') {
+            // 清除注释
             bfdReader.mark(1);
             int mark = curChar;
             curChar = bfdReader.read();
@@ -135,6 +136,10 @@ public class Lexer {
             value.append((char) curChar);
 
         switch (value.toString()) {
+            case "const":
+                token.setType(TokenType.CONST);
+                token.setValue(value.toString());
+                break;
             case "int":
                 token.setType(TokenType.INT);
                 token.setValue(value.toString());
@@ -148,7 +153,7 @@ public class Lexer {
                 token.setValue(value.toString());
                 break;
             default:
-                token.setType(TokenType.ERR);
+                token.setType(TokenType.IDENT);
                 token.setValue(value.toString());
                 break;
         }
