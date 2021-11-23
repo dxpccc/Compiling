@@ -26,7 +26,7 @@ public class Test {
         builder.generateIR(res_parser);
     }
 
-    /*public static void main(String[] args) {
+   /* public static void main(String[] args) {
         try {
             Reader reader = new FileReader(args[0]);
             BufferedReader bufferedReader = new BufferedReader(reader);

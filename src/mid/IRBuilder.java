@@ -54,9 +54,9 @@ public class IRBuilder {
         return _ident;
     }
 
-    private String searchIdentReg(String ident) {
-        return searchIdent(ident).reg;
-    }
+/*    private Ident searchLocalIdent(String ident) {
+        return ident_table_list.peek().get(ident);
+    }*/
 
     public void generateIR(CompUnitAST ast) {
         File output = new File(path);
@@ -163,18 +163,22 @@ public class IRBuilder {
     }
 
     private void visitAssign(AssignAST ast) {
-        String ident = ast.ident;
+        String lhs = ast.ident;
         AddExpAST add = ast.exp;
         String reg_l;
-        Ident _ident = searchIdent(ident);
-        if (_ident.type == Ident.Type.CONSTVAR)
+        Ident ident = searchIdent(lhs);
+        if (ident == null) {
             System.exit(-3);
-        reg_l = _ident.reg;
-        if (reg_l == null) {
+        } else if (ident.type == Ident.Type.CONSTVAR) {
             System.exit(-3);
         } else {
-            String reg_r = visitAddExp(add);
-            ir.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
+            reg_l = ident.reg;
+            if (reg_l == null) {
+                System.exit(-3);
+            } else {
+                String reg_r = visitAddExp(add);
+                ir.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
+            }
         }
     }
 
@@ -245,7 +249,7 @@ public class IRBuilder {
                 reg = visitAddExp(ast.exp);
                 break;
             case LVAL:
-                reg_r = searchIdentReg(ast.l_val);
+                reg_r = searchIdent(ast.l_val).reg;
                 if (reg_r == null) {
                     System.exit(-3);
                 }
