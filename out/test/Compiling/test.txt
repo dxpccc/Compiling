@@ -1,6 +1,7 @@
 int main() {
-    const int sudo = 0, i;
-    int rm = 5, r = 3, home = 5, res;
+    const int sudo = 0;
+    int rm = 5, r = 3, home = 5, res, i;
     res = rm -r /home*       0;
+    const int xxx = sudo;
     return home;
 }

@@ -249,6 +249,7 @@ public class Parser {
     * Stmt -> LVal '=' Add ';'
     *      -> [Add] ';'
     *      -> 'return' Add ';'
+    * LVal -> Ident
     * */
     public StmtAST parseStmt() {
         String ident;

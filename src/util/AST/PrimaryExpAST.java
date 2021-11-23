@@ -6,7 +6,6 @@ public class PrimaryExpAST {
         LVAL,
         NUMBER
     }
-
     public final Type type;
     public final AddExpAST exp;
     public final String l_val;

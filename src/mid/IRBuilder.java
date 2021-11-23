@@ -38,14 +38,120 @@ public class IRBuilder {
         this(null);
     }
 
+    /* *********** 类型检查 ************* */
+    private boolean checkConstInitVal(AddExpAST ast) {
+        if (ast.RHS == null) {
+            return checkConstMulExp(ast.LHS);
+        } else {
+            return checkConstMulExp(ast.LHS) && checkConstInitVal(ast.RHS);
+        }
+    }
+
+    private boolean checkConstMulExp(MulExpAST ast) {
+        if (ast.RHS == null) {
+            return checkConstUnaryExp(ast.LHS);
+        } else {
+            return checkConstUnaryExp(ast.LHS) && checkConstMulExp(ast.RHS);
+        }
+    }
+
+    private boolean checkConstUnaryExp(UnaryExpAST ast) {
+        return checkConstPrimaryExp(ast.primary);
+    }
+
+    private boolean checkConstPrimaryExp(PrimaryExpAST ast) {
+        boolean res = true;
+        switch (ast.type) {
+            case EXP:
+                res = checkConstInitVal(ast.exp);
+                break;
+            case LVAL:
+                Ident ident = searchIdent(ast.l_val);
+                res = (ident != null && ident.type == Ident.Type.CONSTVAR);
+                break;
+            case NUMBER:
+            default:
+                break;
+        }
+        return res;
+    }
+    /* ************ 类型检查 ************* */
+
+    /* *********** 初始化检查 *********** */
+    private boolean checkInitExp(AddExpAST ast) {
+        if (ast.RHS == null) {
+            return checkInitMulExp(ast.LHS);
+        } else {
+            return checkInitMulExp(ast.LHS) && checkInitExp(ast.RHS);
+        }
+    }
+
+    private boolean checkInitMulExp(MulExpAST ast) {
+        if (ast.RHS == null) {
+            return checkInitUnaryExp(ast.LHS);
+        } else {
+            return checkInitUnaryExp(ast.LHS) && checkInitMulExp(ast.RHS);
+        }
+    }
+
+    private boolean checkInitUnaryExp(UnaryExpAST ast) {
+        return checkInitPrimaryExp(ast.primary);
+    }
+
+    private boolean checkInitPrimaryExp(PrimaryExpAST ast) {
+        boolean res = true;
+        switch (ast.type) {
+            case EXP:
+                res = checkInitExp(ast.exp);
+                break;
+            case LVAL:
+                Ident ident = searchIdent(ast.l_val);
+                res = (ident != null && (ident.type == Ident.Type.VAR_INIT || ident.type == Ident.Type.CONSTVAR));
+                break;
+            case NUMBER:
+            default:
+                break;
+        }
+        return res;
+    }
+    /* *********** 初始化检查 *********** */
+
+    /* ************ 命名检查 ************ */
+    private boolean checkExistedIdent(String ident) {
+        return searchIdent(ident) != null;
+    }
+
+    private boolean checkExistedLocalIdent(String ident) {
+        return searchLocalIdent(ident) != null;
+    }
+
+    private boolean checkExistedExternalIdent(String ident) {
+        return searchExternIdent(ident) != null;
+    }
+    /* ************ 命名检查 ************ */
+
     private String getReg() {
         return "%" + (++reg_code);
     }
 
     private Ident searchIdent(String ident) {
+        Ident _ident = searchLocalIdent(ident);
+        return _ident == null? searchExternIdent(ident) : _ident;
+    }
+
+    private Ident searchLocalIdent(String ident) {
+        if (ident.isEmpty())
+            return null;
+        else
+            return ident_table_list.peek().get(ident);
+    }
+
+    private Ident searchExternIdent(String ident) {
         int len = ident_table_list.size();
         Ident _ident = null;
-        for (int i = len - 1; i >= 0; --i) {
+        if (len < 1)
+            return null;
+        for (int i = len - 2; i >= 0; --i) {
             _ident = ident_table_list.elementAt(i).get(ident);
             if (_ident != null) {
                 break;
@@ -53,10 +159,6 @@ public class IRBuilder {
         }
         return _ident;
     }
-
-/*    private Ident searchLocalIdent(String ident) {
-        return ident_table_list.peek().get(ident);
-    }*/
 
     public void generateIR(CompUnitAST ast) {
         File output = new File(path);
@@ -117,10 +219,14 @@ public class IRBuilder {
 
     private void visitConstDef(ConstDefAST ast) {
         String ident = ast.ident;
-        if (searchIdent(ident) != null)
+        // 变量已存在
+        if (checkExistedIdent(ident))
             System.exit(-3);
         String reg_l = getReg();
         ir.append("\t").append(reg_l).append(" = ").append("alloca i32\n");
+        // 用非常量赋值
+        if (!checkConstInitVal(ast.init_val))
+            System.exit(-3);
         String reg_r = visitAddExp(ast.init_val);
         ir.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
         ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.CONSTVAR, reg_l));
@@ -134,7 +240,8 @@ public class IRBuilder {
 
     private void visitVarDef(VarDefAST ast) {
         String ident = ast.ident;
-        if (searchIdent(ident) != null)
+        // 变量已存在
+        if (checkExistedIdent(ident))
             System.exit(-3);
         String reg_l = getReg();
         String reg_r;
@@ -188,6 +295,9 @@ public class IRBuilder {
     }
 
     private String visitAddExp(AddExpAST ast) {
+        // 变量未定义
+        if (!checkInitExp(ast))
+            System.exit(-3);
         String reg, reg_l, reg_r, op;
         AddExpAST cur_ast = ast;
         reg = visitMulExp(ast.LHS);
