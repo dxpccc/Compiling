@@ -1,9 +1,8 @@
 int main() {
-    int sudo = 0;
-    const int rm = 5;
-    int r = 3;
-    const int home = rm * 5 - 20;
-    sudo = rm -r /home*        0;
-    putint(sudo);
+    int V62, xU4 = 5;
+    V62 = 10;
+    xU4 = 6;
+    int Cy92 = V62 * 2 + xU4 + 3;
+    putint(Cy92);
     return 0;
 }

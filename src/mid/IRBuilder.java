@@ -13,7 +13,7 @@ class Ident {
         VAR_UNINIT,
     }
     public final String ident;
-    public final Type type;
+    public Type type;
     public final String reg;
 
     public Ident(String ident, Type type, String reg) {
@@ -354,6 +354,7 @@ public class IRBuilder {
             } else {
                 String reg_r = visitAddExp(add);
                 ir.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
+                ident.type = Ident.Type.VAR_INIT;
             }
         }
     }
