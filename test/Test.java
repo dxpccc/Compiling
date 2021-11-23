@@ -11,7 +11,7 @@ import java.io.Reader;
 import java.util.ArrayList;
 
 public class Test {
-    public static void main(String[] args) {
+    /*public static void main(String[] args) {
         Lexer lexer = new Lexer("./test/test.txt");
         ArrayList<Token> res_lexer = lexer.analyse();   // 词法分析结果
         if (res_lexer == null)                                  // 词法分析出错返回-1
@@ -24,9 +24,9 @@ public class Test {
 
         IRBuilder builder = new IRBuilder("./test/output.txt");
         builder.generateIR(res_parser);
-    }
+    }*/
 
-    /*public static void main(String[] args) {
+    public static void main(String[] args) {
         try {
             Reader reader = new FileReader(args[0]);
             BufferedReader bufferedReader = new BufferedReader(reader);
@@ -36,5 +36,5 @@ public class Test {
         } catch (IOException e) {
             System.out.println(e.getMessage());
         }
-    }*/
+    }
 }
