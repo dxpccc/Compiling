@@ -447,6 +447,7 @@ public class Parser {
             } else if ((token = nextToken()) == null) {
                 return null;
             } else if (token.getType() == TokenType.PAREN_R) {
+                token = getNextToken();
                 return new FuncCallAST(ident, params);
             } else {
                 AddExpAST param;
