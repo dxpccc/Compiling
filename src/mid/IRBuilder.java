@@ -388,7 +388,7 @@ public class IRBuilder {
         reg = visitUnaryExp(ast.LHS);
         while (cur_ast.RHS != null) {
             reg_l = reg;
-            reg_r = visitUnaryExp(ast.RHS.LHS);
+            reg_r = visitUnaryExp(cur_ast.RHS.LHS);
             reg = getReg();
             switch (cur_ast.op) {
                 case "*":
@@ -470,7 +470,7 @@ public class IRBuilder {
             default:
                 break;
         }
-        res.append("call ").append(type).append("@").append(ident).append("(");
+        res.append("call ").append(type).append(" @").append(ident).append("(");
         for (AddExpAST add : ast.params) {
             res.append("i32 ").append(visitAddExp(add));
         }
