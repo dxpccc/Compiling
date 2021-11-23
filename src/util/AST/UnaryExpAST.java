@@ -4,8 +4,8 @@ public class UnaryExpAST {
     public final String op;
     public final PrimaryExpAST primary;
 
-    public UnaryExpAST(String op, PrimaryExpAST ast) {
+    public UnaryExpAST(String op, PrimaryExpAST primary) {
         this.op = op;
-        this.primary = ast;
+        this.primary = primary;
     }
 }

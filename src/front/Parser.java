@@ -45,7 +45,7 @@ public class Parser {
     /*
     * CompUnit -> FuncDef
     * */
-    public CompUnitAST parseCompUnit() {
+    private CompUnitAST parseCompUnit() {
         FuncDefAST funcDefAST = parseFuncDef();
         if (funcDefAST == null)
             return null;
@@ -56,7 +56,7 @@ public class Parser {
     /*
     * FuncDef -> 'int' 'main' '(' ')' Block
     * */
-    public FuncDefAST parseFuncDef() {
+    private FuncDefAST parseFuncDef() {
         Token token = getNextToken();
         if (token != null && token.getType() == TokenType.INT) {
             if (getNextToken().getType() == TokenType.MAIN && getNextToken().getType() == TokenType.PAREN_L && getNextToken().getType() == TokenType.PAREN_R) {
@@ -75,7 +75,7 @@ public class Parser {
     /*
     * Block -> '{' {ConstDecl | VarDecl | Stmt} '}'
     * */
-    public BlockAST parseBlock() {
+    private BlockAST parseBlock() {
         Token token = getNextToken();
         if (token != null && token.getType() == TokenType.BRACE_L) {
             ArrayList<BlockItemAST> asts = new ArrayList<>();
@@ -97,7 +97,7 @@ public class Parser {
     /*
     * BlockItem -> ConstDecl | VarDecl | Stmt
     * */
-    public BlockItemAST parseBlockItem() {
+    private BlockItemAST parseBlockItem() {
         Token token = nextToken();
         ConstDeclAST const_decl;
         VarDeclAST var_decl;
@@ -128,7 +128,7 @@ public class Parser {
     /*
     * ConstDecl -> 'const' 'int' ConstDef { ',' ConstDef } ';'
     * */
-    public ConstDeclAST parseConstDecl() {
+    private ConstDeclAST parseConstDecl() {
         Token token = getNextToken();
         if (token == null) {
             return null;
@@ -164,7 +164,7 @@ public class Parser {
     /*
     * ConstDef -> Ident '=' ConstInitVal
     * */
-    public ConstDefAST parseConstDef() {
+    private ConstDefAST parseConstDef() {
         Token token;
         String ident;
         AddExpAST add;
@@ -189,7 +189,7 @@ public class Parser {
     /*
     * VarDecl -> 'int' VarDef { ',' VarDef } ';'
     * */
-    public VarDeclAST parseVarDecl() {
+    private VarDeclAST parseVarDecl() {
         Token token = getNextToken();
         if (token == null) {
             return null;
@@ -222,7 +222,7 @@ public class Parser {
     * VarDef  -> Ident | Ident '=' InitVal
     * InitVal -> Exp
     * */
-    public VarDefAST parseVarDef() {
+    private VarDefAST parseVarDef() {
         Token token;
         String ident;
         AddExpAST add;
@@ -251,7 +251,7 @@ public class Parser {
     *      -> 'return' Add ';'
     * LVal -> Ident
     * */
-    public StmtAST parseStmt() {
+    private StmtAST parseStmt() {
         String ident;
         AddExpAST addExpAST;
         Token token = getNextToken();
@@ -259,24 +259,35 @@ public class Parser {
             return null;
         } else if (token.getType() == TokenType.IDENT) {
             ident = token.getValue();
-            token = getNextToken();
-            if (token.getType() != TokenType.ASSIGN) {
-                return null;
+            token = nextToken();
+            if (token != null && token.getType() != TokenType.ASSIGN) {
+                rollBack();
+                addExpAST = parseAddExp();
+                if (addExpAST == null) {
+                    return null;
+                } else if ((token = getNextToken()) == null) {
+                    return null;
+                } else if (token.getType() != TokenType.SEMICOLON) {
+                    return null;
+                } else {
+                    return new StmtAST(StmtAST.Type.EXP, null, null, addExpAST);
+                }
             } else {
+                token = getNextToken();
                 addExpAST = parseAddExp();
                 if (addExpAST == null) {
                     return null;
                 } else if ((token = getNextToken()).getType() != TokenType.SEMICOLON) {
                     return null;
                 } else
-                    return new StmtAST(StmtAST.Type.ASSIGN, new AssignAST(ident, addExpAST), null);
+                    return new StmtAST(StmtAST.Type.ASSIGN, new AssignAST(ident, addExpAST), null, null);
             }
         } else if (token.getType() == TokenType.RETURN) {
             addExpAST = parseAddExp();
             if (addExpAST == null) {
                 return null;
             } else if ((token = getNextToken()) != null && token.getType() == TokenType.SEMICOLON) {
-                return new StmtAST(StmtAST.Type.RETURN, null, new ReturnAST(addExpAST));
+                return new StmtAST(StmtAST.Type.RETURN, null, new ReturnAST(addExpAST), null);
             } else
                 return null;
         } else {
@@ -289,7 +300,7 @@ public class Parser {
             } else if (token.getType() != TokenType.SEMICOLON) {
                 return null;
             } else {
-                return new StmtAST(StmtAST.Type.EXP, null, null);
+                return new StmtAST(StmtAST.Type.EXP, null, null, addExpAST);
             }
         }
     }
@@ -301,7 +312,7 @@ public class Parser {
     *
     * Add  -> Mul { ('+'|'-') Mul }
     * */
-    public AddExpAST parseAddExp() {
+    private AddExpAST parseAddExp() {
         MulExpAST LHS;
         AddExpAST RHS;
         Token token;
@@ -326,7 +337,7 @@ public class Parser {
     *
     * Mul  -> Unary { ('*'|'/'|'%') Unary }
     * */
-    public MulExpAST parseMulExp() {
+    private MulExpAST parseMulExp() {
         UnaryExpAST LHS;
         MulExpAST RHS;
         Token token;
@@ -347,12 +358,12 @@ public class Parser {
     /*
     * Unary -> { UnaryOp } Primary
     * */
-    public UnaryExpAST parseUnaryExp() {
+    private UnaryExpAST parseUnaryExp() {
         Token token;
         String op;
         PrimaryExpAST primary;
         token = getNextToken();
-        op = "+";
+        op = "";
         while (token != null && (token.getType() == TokenType.ADD || token.getType() == TokenType.MIN)) {
             String opp = token.getValue();
             if (opp.equals("-")) {
@@ -365,7 +376,7 @@ public class Parser {
         }
         if (token == null) {
             return null;
-        } else {
+        } else  {
             rollBack();
             primary = parsePrimaryExp();
             if (primary == null) {
@@ -377,15 +388,19 @@ public class Parser {
     }
 
     /*
-    * Primary -> '(' Exp ')' | LVal | Number
+    * Primary -> '(' Exp ')' | LVal | Number | FuncCall
     * LVal    -> Ident
     * */
-    public PrimaryExpAST parsePrimaryExp() {
+    private PrimaryExpAST parsePrimaryExp() {
         Token token = getNextToken();
+        AddExpAST add;
+        String l_val;
+        String number;
+        FuncCallAST func_call;
         if (token == null) {
             return null;
         } else if (token.getType() == TokenType.PAREN_L) {
-            AddExpAST add = parseAddExp();
+            add = parseAddExp();
             if (add == null) {
                 return null;
             } else if ((token = getNextToken()) == null) {
@@ -393,22 +408,62 @@ public class Parser {
             } else if (token.getType() != TokenType.PAREN_R) {
                 return null;
             } else {
-                return new PrimaryExpAST(PrimaryExpAST.Type.EXP, add, null, null);
+                return new PrimaryExpAST(PrimaryExpAST.Type.EXP, add, null, null, null);
             }
         } else if (token.getType() == TokenType.IDENT) {
-            return new PrimaryExpAST(PrimaryExpAST.Type.LVAL, null, token.getValue(), null);
+            l_val = token.getValue();
+            if ((token = nextToken()) != null && token.getType() == TokenType.PAREN_L) {
+                rollBack();
+                func_call = parseFuncCall();
+                if (func_call == null) {
+                    return null;
+                } else {
+                    return new PrimaryExpAST(PrimaryExpAST.Type.FUNC_CALL, null, null, null, func_call);
+                }
+            } else
+                return new PrimaryExpAST(PrimaryExpAST.Type.LVAL, null, l_val, null, null);
         } else if (token.getType() == TokenType.NUMBER){
-            return new PrimaryExpAST(PrimaryExpAST.Type.NUMBER, null, null, token.getValue());
+            return new PrimaryExpAST(PrimaryExpAST.Type.NUMBER, null, null, token.getValue(), null);
         } else {
             return null;
         }
     }
 
-    public NumberAST parseNumber(String number) {
-        return new NumberAST(number);
-    }
-
-    public IdentityAST parseIdent(String ident) {
-        return new IdentityAST(ident);
+    /*
+    * FuncCall   -> Ident '(' [FuncRParams] ')'
+    * FuncParams -> Exp { ',' Exp }
+    * */
+    private FuncCallAST parseFuncCall() {
+        Token token = getNextToken();
+        String ident;
+        ArrayList<AddExpAST> params = new ArrayList<>();
+        if (token == null) {
+            return null;
+        } else {
+            ident = token.getValue();
+            token = getNextToken();
+            if (token.getType() != TokenType.PAREN_L) {
+                return null;
+            } else if ((token = nextToken()) == null) {
+                return null;
+            } else if (token.getType() == TokenType.PAREN_R) {
+                return new FuncCallAST(ident, params);
+            } else {
+                AddExpAST param;
+                do {
+                    param = parseAddExp();
+                    if (param == null) {
+                        return null;
+                    } else {
+                        params.add(param);
+                    }
+                } while ((token = getNextToken()).getType() == TokenType.COMMA);
+                if (token.getType() != TokenType.PAREN_R) {
+                    return null;
+                } else {
+                    return new FuncCallAST(ident, params);
+                }
+            }
+        }
     }
 }

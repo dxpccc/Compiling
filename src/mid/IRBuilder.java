@@ -11,7 +11,6 @@ class Ident {
         CONSTVAR,
         VAR_INIT,
         VAR_UNINIT,
-        FUNCTION
     }
     public final String ident;
     public final Type type;
@@ -24,21 +23,44 @@ class Ident {
     }
 }
 
+class Func {
+    public enum Type {
+        INT,
+        VOID
+    }
+    public final Type type;
+    public final String ident;
+
+    public Func(Type type, String ident) {
+        this.type = type;
+        this.ident = ident;
+    }
+}
+
 public class IRBuilder {
     private final String path;
     private int reg_code = 0;
     private final StringBuilder ir = new StringBuilder();
     private Stack<HashMap<String, Ident>> ident_table_list = new Stack<>();
+    private HashMap<String, Func> function_table = new HashMap<>();
 
     public IRBuilder(String path) {
         this.path = path;
+        ir.append("declare i32 @getint()\n");
+        ir.append("declare i32 @getch()\n");
+        ir.append("declare void @putint(i32)\n");
+        ir.append("declare vode @putch(i32)\n");
+        function_table.put("getint", new Func(Func.Type.INT, "getint"));
+        function_table.put("getch", new Func(Func.Type.INT, "getch"));
+        function_table.put("putint", new Func(Func.Type.VOID, "putint"));
+        function_table.put("putch", new Func(Func.Type.VOID, "putch"));
     }
 
     public IRBuilder() {
         this(null);
     }
 
-    /* *********** 类型检查 ************* */
+    /* *********** 常量类型检查 ************* */
     private boolean checkConstInitVal(AddExpAST ast) {
         if (ast.RHS == null) {
             return checkConstMulExp(ast.LHS);
@@ -69,15 +91,18 @@ public class IRBuilder {
                 Ident ident = searchIdent(ast.l_val);
                 res = (ident != null && ident.type == Ident.Type.CONSTVAR);
                 break;
+            case FUNC_CALL:
+                res = false;
+                break;
             case NUMBER:
             default:
                 break;
         }
         return res;
     }
-    /* ************ 类型检查 ************* */
+    /* ************ 常量类型检查 ************* */
 
-    /* *********** 初始化检查 *********** */
+    /* *********** 变量初始化检查 *********** */
     private boolean checkInitExp(AddExpAST ast) {
         if (ast.RHS == null) {
             return checkInitMulExp(ast.LHS);
@@ -108,15 +133,20 @@ public class IRBuilder {
                 Ident ident = searchIdent(ast.l_val);
                 res = (ident != null && (ident.type == Ident.Type.VAR_INIT || ident.type == Ident.Type.CONSTVAR));
                 break;
+            case FUNC_CALL:
+                // 返回值为void的函数不允许出现在exp中，Stmt中特判
+                Func func = searchFunc(ast.func_call.ident);
+                res = (func != null && func.type == Func.Type.INT);
+                break;
             case NUMBER:
             default:
                 break;
         }
         return res;
     }
-    /* *********** 初始化检查 *********** */
+    /* *********** 变量初始化检查 *********** */
 
-    /* ************ 命名检查 ************ */
+    /* ************ 变量命名检查 ************ */
     private boolean checkExistedIdent(String ident) {
         return searchIdent(ident) != null;
     }
@@ -128,12 +158,25 @@ public class IRBuilder {
     private boolean checkExistedExternalIdent(String ident) {
         return searchExternIdent(ident) != null;
     }
-    /* ************ 命名检查 ************ */
+    /* ************ 变量命名检查 ************ */
 
-    private String getReg() {
-        return "%" + (++reg_code);
+    /*
+    * 判断Exp是否为单独的 void Func() 调用
+    * */
+    private boolean isVoidFunc(AddExpAST ast) {
+        MulExpAST mul = ast.LHS;
+        if (ast.RHS == null && mul.RHS == null) {
+            UnaryExpAST unary = mul.LHS;
+            if (unary.op.equals("") && unary.primary.type == PrimaryExpAST.Type.FUNC_CALL) {
+                Func func = searchFunc(unary.primary.func_call.ident);
+                return func.type == Func.Type.VOID;
+            } else
+                return false;
+        } else
+            return false;
     }
 
+    /* **************** 搜索变量名 **************** */
     private Ident searchIdent(String ident) {
         Ident _ident = searchLocalIdent(ident);
         return _ident == null? searchExternIdent(ident) : _ident;
@@ -158,6 +201,26 @@ public class IRBuilder {
             }
         }
         return _ident;
+    }
+    /* **************** 搜索变量名 **************** */
+
+    /* **************** 搜索函数 **************** */
+    private Func searchFunc(String ident) {
+        return function_table.get(ident);
+    }
+    /* **************** 搜索函数 **************** */
+
+    /* *************** 检查函数是否声明 ***************** */
+    private boolean checkFunc(String ident) {
+        return searchFunc(ident) != null;
+    }
+    /* *************** 检查函数是否声明 ***************** */
+
+    /*
+     * 获取虚拟寄存器
+     * */
+    private String getReg() {
+        return "%" + (++reg_code);
     }
 
     public void generateIR(CompUnitAST ast) {
@@ -264,6 +327,12 @@ public class IRBuilder {
                 visitReturn(ast.return_ast);
                 break;
             case EXP:
+                // void Func 特判
+                if (isVoidFunc(ast.exp)) {
+                    String func_call = visitFuncCall(ast.exp.LHS.LHS.primary.func_call);
+                    ir.append("\t").append(func_call).append("\n");
+                }
+                break;
             default:
                 break;
         }
@@ -359,12 +428,18 @@ public class IRBuilder {
                 reg = visitAddExp(ast.exp);
                 break;
             case LVAL:
-                reg_r = searchIdent(ast.l_val).reg;
-                if (reg_r == null) {
+                Ident ident;
+                ident = searchIdent(ast.l_val);
+                if (ident == null) {
                     System.exit(-3);
                 }
+                reg_r = ident.reg;
                 reg = getReg();
                 ir.append("\t").append(reg).append(" = load i32, i32* ").append(reg_r).append("\n");
+                break;
+            case FUNC_CALL:
+                reg = getReg();
+                ir.append("\t").append(reg).append(" = ").append(visitFuncCall(ast.func_call)).append("\n");
                 break;
             case NUMBER:
                 reg = ast.number;
@@ -374,5 +449,31 @@ public class IRBuilder {
                 break;
         }
         return reg;
+    }
+
+    private String visitFuncCall(FuncCallAST ast) {
+        StringBuilder res = new StringBuilder();
+        String ident = ast.ident;
+        Func func = searchFunc(ident);
+        if (func == null) {
+            System.exit(-3);
+        }
+        String type = "i32";
+        switch (func.type) {
+            case INT:
+                type = "i32";
+                break;
+            case VOID:
+                type = "void";
+                break;
+            default:
+                break;
+        }
+        res.append("call ").append(type).append("@").append(ident).append("(");
+        for (AddExpAST add : ast.params) {
+            res.append("i32 ").append(visitAddExp(add));
+        }
+        res.append(")");
+        return res.toString();
     }
 }
