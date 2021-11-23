@@ -49,7 +49,7 @@ public class IRBuilder {
         ir.append("declare i32 @getint()\n");
         ir.append("declare i32 @getch()\n");
         ir.append("declare void @putint(i32)\n");
-        ir.append("declare vode @putch(i32)\n");
+        ir.append("declare void @putch(i32)\n");
         function_table.put("getint", new Func(Func.Type.INT, "getint"));
         function_table.put("getch", new Func(Func.Type.INT, "getch"));
         function_table.put("putint", new Func(Func.Type.VOID, "putint"));
