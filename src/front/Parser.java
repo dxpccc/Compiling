@@ -15,10 +15,6 @@ public class Parser {
         index = -1;
     }
 
-    public Parser() {
-        this(null);
-    }
-
     private Token getNextToken() {
         if (index < tokens.size() - 1) {
             index++;
@@ -465,6 +461,101 @@ public class Parser {
                     return new FuncCallAST(ident, params);
                 }
             }
+        }
+    }
+
+    /*
+    * LOr -> LAnd | LOr '||' LAnd
+    *
+    * LOr -> LAnd { '||' LAnd }
+    * */
+    private LOrExpAST parseLOrExp() {
+        LAndExpAST and;
+        ArrayList<LAndExpAST> ands = new ArrayList<>();
+        Token token;
+        if ((and = parseLAndExp()) == null) {
+            return null;
+        } else {
+            ands.add(and);
+            while ((token = getNextToken()) != null && token.getType() == TokenType.OR) {
+                and = parseLAndExp();
+                if (and != null) {
+                    ands.add(and);
+                } else {
+                    return null;
+                }
+            }
+            rollBack();
+            return new LOrExpAST(ands);
+        }
+    }
+
+    /*
+    * LAnd -> Eq | LAnd '&&' Eq
+    * LAnd -> Eq { '&&' Eq }
+    * */
+    private LAndExpAST parseLAndExp() {
+        EqExpAST eq;
+        ArrayList<EqExpAST> eqs = new ArrayList<>();
+        Token token;
+        if ((eq = parseEqExp()) == null) {
+            return null;
+        } else {
+            eqs.add(eq);
+            while ((token = getNextToken()) != null && token.getType() == TokenType.AND) {
+                eq = parseEqExp();
+                if (eq != null) {
+                    eqs.add(eq);
+                } else {
+                    return null;
+                }
+            }
+            rollBack();
+            return new LAndExpAST(eqs);
+        }
+    }
+
+    /*
+    * Eq -> Rel | Eq ('==' | '!=') Rel
+    * Eq -> Rel { ('==' | '!=') Rel }
+    * */
+    private EqExpAST parseEqExp() {
+        RelExpAST rel;
+        EqExpAST eq;
+        Token token;
+        if ((rel = parseRelExp()) == null) {
+            return null;
+        } else if ((token = getNextToken()) == null) {
+            return new EqExpAST(null, rel, null);
+        } else if (token.getType() != TokenType.EQ && token.getType() != TokenType.NOT_EQ) {
+            rollBack();
+            return new EqExpAST(null, rel, null);
+        } else if ((eq = parseEqExp()) == null) {
+            return null;
+        } else {
+            return new EqExpAST(token.getValue(), rel, eq);
+        }
+    }
+
+    /*
+    * Rel -> Add | Rel ('<' | '>' | '<=' | '>=') Add
+    * Rel -> Add { ('<' | '>' | '<=' | '>=') Add }
+    * */
+    private RelExpAST parseRelExp() {
+        AddExpAST add;
+        RelExpAST rel;
+        Token token;
+        if ((add = parseAddExp()) == null) {
+            return null;
+        } else if ((token = getNextToken()) == null) {
+            return new RelExpAST(null, add, null);
+        } else if (token.getType() != TokenType.LESS && token.getType() != TokenType.GREATER && token.getType() != TokenType.LESS_EQ && token.getType() != TokenType.GREATER_EQ) {
+            rollBack();
+            return new RelExpAST(null, add, null);
+        } else if ((rel = parseRelExp()) == null) {
+            return null;
+        } else {
+            return new RelExpAST(token.getValue(), add, rel);
         }
     }
 }

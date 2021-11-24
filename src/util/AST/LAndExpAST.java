@@ -1,11 +1,11 @@
 package util.AST;
 
-public class LAndExpAST {
-    public final EqExpAST eq;
-    public final LAndExpAST and;
+import java.util.ArrayList;
 
-    public LAndExpAST(EqExpAST eq, LAndExpAST and) {
-        this.eq = eq;
-        this.and = and;
+public class LAndExpAST {
+    public final ArrayList<EqExpAST> eqs;
+
+    public LAndExpAST(ArrayList<EqExpAST> eqs) {
+        this.eqs = eqs;
     }
 }

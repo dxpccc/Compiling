@@ -1,11 +1,11 @@
 package util.AST;
 
-public class LOrExpAST {
-    public final LAndExpAST and;
-    public final LOrExpAST or;
+import java.util.ArrayList;
 
-    public LOrExpAST(LAndExpAST and, LOrExpAST or) {
-        this.and = and;
-        this.or = or;
+public class LOrExpAST {
+    public final ArrayList<LAndExpAST> ands;
+
+    public LOrExpAST(ArrayList<LAndExpAST> ands) {
+        this.ands = ands;
     }
 }
