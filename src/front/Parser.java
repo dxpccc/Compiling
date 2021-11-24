@@ -244,7 +244,9 @@ public class Parser {
     /*
     * Stmt -> LVal '=' Add ';'
     *      -> [Add] ';'
+    *      -> Block
     *      -> 'return' Add ';'
+    *      -> 'if' '(' Cond ')' Stmt [ 'else' Stmt ]
     * LVal -> Ident
     * */
     private StmtAST parseStmt() {
@@ -266,7 +268,7 @@ public class Parser {
                 } else if (token.getType() != TokenType.SEMICOLON) {
                     return null;
                 } else {
-                    return new StmtAST(StmtAST.Type.EXP, null, null, addExpAST);
+                    return new StmtAST(StmtAST.Type.EXP, null, null, addExpAST, null, null);
                 }
             } else {
                 token = getNextToken();
@@ -276,16 +278,32 @@ public class Parser {
                 } else if ((token = getNextToken()).getType() != TokenType.SEMICOLON) {
                     return null;
                 } else
-                    return new StmtAST(StmtAST.Type.ASSIGN, new AssignAST(ident, addExpAST), null, null);
+                    return new StmtAST(StmtAST.Type.ASSIGN, new AssignAST(ident, addExpAST), null, null, null, null);
             }
         } else if (token.getType() == TokenType.RETURN) {
             addExpAST = parseAddExp();
             if (addExpAST == null) {
                 return null;
             } else if ((token = getNextToken()) != null && token.getType() == TokenType.SEMICOLON) {
-                return new StmtAST(StmtAST.Type.RETURN, null, new ReturnAST(addExpAST), null);
+                return new StmtAST(StmtAST.Type.RETURN, null, new ReturnAST(addExpAST), null, null, null);
             } else
                 return null;
+        } else if (token.getType() == TokenType.IF) {
+            rollBack();
+            IfAST if_ast = parseIf();
+            if (if_ast == null) {
+                return null;
+            } else {
+                return new StmtAST(StmtAST.Type.IF, null, null, null, if_ast, null);
+            }
+        } else if (token.getType() == TokenType.BRACE_L) {
+            rollBack();
+            BlockAST block = parseBlock();
+            if (block == null) {
+                return null;
+            } else {
+                return new StmtAST(StmtAST.Type.BLOCK, null, null, null, null, block);
+            }
         } else {
             rollBack();
             addExpAST = parseAddExp();
@@ -296,8 +314,44 @@ public class Parser {
             } else if (token.getType() != TokenType.SEMICOLON) {
                 return null;
             } else {
-                return new StmtAST(StmtAST.Type.EXP, null, null, addExpAST);
+                return new StmtAST(StmtAST.Type.EXP, null, null, addExpAST, null, null);
             }
+        }
+    }
+
+    /*
+    * 'if' '(' Cond ')' Stmt [ 'else' Stmt ]
+    * */
+    private IfAST parseIf() {
+        Token token = getNextToken();
+        LOrExpAST or;
+        StmtAST stmt_if;
+        StmtAST stmt_else;
+        if (token == null) {
+            return null;
+        } else if (token.getType() != TokenType.IF) {
+            return null;
+        } else if ((token = getNextToken()) == null) {
+            return null;
+        } else if (token.getType() != TokenType.PAREN_L) {
+            return null;
+        } else if ((or = parseLOrExp()) == null) {
+            return null;
+        } else if ((token = getNextToken()) == null) {
+            return null;
+        } else if (token.getType() != TokenType.PAREN_R) {
+            return null;
+        } else if ((stmt_if = parseStmt()) == null) {
+            return null;
+        } else if ((token = getNextToken()) == null) {
+            return new IfAST(or, stmt_if, null);
+        } else if (token.getType() != TokenType.ELSE) {
+            rollBack();
+            return new IfAST(or, stmt_if, null);
+        } else if ((stmt_else = parseStmt()) == null) {
+            return null;
+        } else {
+            return new IfAST(or, stmt_if, stmt_else);
         }
     }
 
@@ -356,17 +410,28 @@ public class Parser {
     * */
     private UnaryExpAST parseUnaryExp() {
         Token token;
-        String op;
+        String op_arithmetic;
+        String op_logic;
         PrimaryExpAST primary;
         token = getNextToken();
-        op = "";
-        while (token != null && (token.getType() == TokenType.ADD || token.getType() == TokenType.MIN)) {
+        op_arithmetic = op_logic = "";
+        while (token != null && (token.getType() == TokenType.ADD || token.getType() == TokenType.MIN || token.getType() == TokenType.NOT)) {
             String opp = token.getValue();
-            if (opp.equals("-")) {
-                if (op.equals("-"))
-                    op = "+";
-                else
-                    op = "-";
+            switch (opp) {
+                case "-":
+                    if (op_arithmetic.equals("-"))
+                        op_arithmetic = "";
+                    else
+                        op_arithmetic = "-";
+                    break;
+                case "!":
+                    if (op_logic.equals("!"))
+                        op_logic = "";
+                    else
+                        op_logic = "!";
+                    break;
+                default:
+                    break;
             }
             token = getNextToken();
         }
@@ -378,7 +443,7 @@ public class Parser {
             if (primary == null) {
                 return null;
             } else {
-                return new UnaryExpAST(op, primary);
+                return new UnaryExpAST(op_arithmetic, op_logic, primary);
             }
         }
     }
@@ -391,7 +456,6 @@ public class Parser {
         Token token = getNextToken();
         AddExpAST add;
         String l_val;
-        String number;
         FuncCallAST func_call;
         if (token == null) {
             return null;
