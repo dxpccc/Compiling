@@ -19,6 +19,15 @@ public class OpMap {
         map.put("/", TokenType.DIV);
         map.put("%", TokenType.MOD);
         map.put("=", TokenType.ASSIGN);
+        map.put("!", TokenType.NOT);
+        map.put(">", TokenType.GREATER);
+        map.put("<", TokenType.LESS);
+        map.put("==", TokenType.EQ);
+        map.put(">=", TokenType.GREATER_EQ);
+        map.put("<=", TokenType.LESS_EQ);
+        map.put("!=", TokenType.NOT_EQ);
+        map.put("||", TokenType.OR);
+        map.put("&&", TokenType.AND);
     }
 
     public static OpMap getInstance() {

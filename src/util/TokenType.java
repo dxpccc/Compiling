@@ -9,6 +9,8 @@ public enum TokenType {
     INT,
     MAIN,
     RETURN,
+    IF,
+    ELSE,
     PAREN_L,
     PAREN_R,
     BRACE_L,
@@ -20,5 +22,14 @@ public enum TokenType {
     MUL,
     DIV,
     MOD,
-    ASSIGN
+    ASSIGN,
+    NOT,
+    GREATER,
+    LESS,
+    EQ,
+    GREATER_EQ,
+    LESS_EQ,
+    NOT_EQ,
+    OR,
+    AND
 }
