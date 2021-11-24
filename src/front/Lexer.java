@@ -156,6 +156,14 @@ public class Lexer {
                 token.setType(TokenType.RETURN);
                 token.setValue(value.toString());
                 break;
+            case "if":
+                token.setType(TokenType.IF);
+                token.setValue(value.toString());
+                break;
+            case "else":
+                token.setType(TokenType.ELSE);
+                token.setValue(value.toString());
+                break;
             default:
                 token.setType(TokenType.IDENT);
                 token.setValue(value.toString());
@@ -206,8 +214,24 @@ public class Lexer {
     }
 
     private void lexOperator(Token token) throws IOException {
-        token.setType(OpMap.getInstance().getOpType(Character.toString((char) curChar)));
-        token.setValue(String.valueOf((char) curChar));
+        String op_single = Character.toString((char) curChar);
         curChar = bfdReader.read();
+        String op_double = op_single + (char) curChar;
+        switch (op_double) {
+            case "==":
+            case "!=":
+            case ">=":
+            case "<=":
+            case "&&":
+            case "||":
+                token.setType(OpMap.getInstance().getOpType(op_double));
+                token.setValue(op_double);
+                curChar = bfdReader.read();
+                break;
+            default:
+                token.setType(OpMap.getInstance().getOpType(op_single));
+                token.setValue(op_single);
+                break;
+        }
     }
 }
