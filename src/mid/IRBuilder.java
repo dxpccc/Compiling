@@ -402,8 +402,8 @@ public class IRBuilder {
             case EXP:
                 // void Func 特判
                 if (isVoidFunc(ast.exp)) {
-                    String func_call = visitFuncCall(ast.exp.LHS.LHS.primary.func_call);
-                    res.append("\t").append(func_call).append("\n");
+                    String func_call = visitFuncCall(ast.exp.LHS.LHS.primary.func_call, null);
+                    res.append(func_call);
                 }
                 break;
             case BLOCK:
@@ -625,7 +625,7 @@ public class IRBuilder {
                 reg = getReg();
 
                 // 添加IR
-                sb.append("\t").append(reg).append(" = ").append(visitFuncCall(ast.func_call)).append("\n");
+                sb.append(visitFuncCall(ast.func_call, reg));
 
                 break;
             case NUMBER:
@@ -641,7 +641,7 @@ public class IRBuilder {
     /**
     *  @return 函数调用的IR
     * */
-    private String visitFuncCall(FuncCallAST ast) {
+    private String visitFuncCall(FuncCallAST ast, String caller) {
         StringBuilder res = new StringBuilder();
         ArrayList<String> regs = new ArrayList<>();
         String ident = ast.ident;
@@ -673,6 +673,9 @@ public class IRBuilder {
             // 记录参数的reg
             regs.add(reg);
         }
+        res.append("\t");
+        if (caller != null)
+            res.append(caller).append(" = ");
         res.append("call ").append(type).append(" @").append(ident).append("(");
         if (!regs.isEmpty()) {
             res.append("i32 ").append(regs.get(0));
@@ -680,7 +683,7 @@ public class IRBuilder {
                 res.append(", i32 ").append(regs.get(i));
             }
         }
-        res.append(")");
+        res.append(")\n");
         return res.toString();
     }
 
