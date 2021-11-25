@@ -126,7 +126,8 @@ public class Lexer {
     }
 
     private boolean isOperator(int ch) {
-        return OpMap.getInstance().isOp(Character.toString((char) ch));
+        char c = (char) ch;
+        return OpMap.getInstance().isOp(String.valueOf(c)) || c == '|' || c == '&';
     }
 
     private boolean isNondigit(int ch) {

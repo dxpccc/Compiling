@@ -82,9 +82,10 @@ public class Parser {
                 else
                     return null;
             }
-            if (token != null)
+            if (token != null) {
+                token = getNextToken();
                 return new BlockAST(asts);
-            else
+            } else
                 return null;
         } else
             return null;
@@ -327,6 +328,7 @@ public class Parser {
         LOrExpAST or;
         StmtAST stmt_if;
         StmtAST stmt_else;
+        IfAST if_ast = null;
         if (token == null) {
             return null;
         } else if (token.getType() != TokenType.IF) {

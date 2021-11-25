@@ -3,7 +3,9 @@ package mid;
 import util.AST.*;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Stack;
 
 class Ident {
@@ -167,7 +169,7 @@ public class IRBuilder {
         MulExpAST mul = ast.LHS;
         if (ast.RHS == null && mul.RHS == null) {
             UnaryExpAST unary = mul.LHS;
-            if (unary.op.equals("") && unary.primary.type == PrimaryExpAST.Type.FUNC_CALL) {
+            if (unary.op_arithmetic.equals("") && unary.op_logic.equals("") && unary.primary.type == PrimaryExpAST.Type.FUNC_CALL) {
                 Func func = searchFunc(unary.primary.func_call.ident);
                 return func.type == Func.Type.VOID;
             } else
@@ -223,6 +225,10 @@ public class IRBuilder {
         return "%" + (++reg_code);
     }
 
+    private String getLabel() {
+        return String.valueOf(++reg_code);
+    }
+
     public void generateIR(CompUnitAST ast) {
         File output = new File(path);
         Writer writer;
@@ -244,18 +250,17 @@ public class IRBuilder {
     }
 
     private void visitFuncDef(FuncDefAST ast) {
-        ir.append("define " + "i32 " + "@").append(ast.getIdent()).append("()");
+        ir.append("define " + "i32 " + "@").append(ast.getIdent()).append("(){\n");
         visitBlock(ast.block);
+        ir.append("}\n");
     }
 
     private void visitBlock(BlockAST ast) {
-        ir.append("{\n");
         ident_table_list.push(new HashMap<>());
         for (BlockItemAST item:ast.asts) {
             visitBlockItem(item);
         }
         ident_table_list.pop();
-        ir.append("}\n");
     }
 
     private void visitBlockItem(BlockItemAST ast) {
@@ -332,6 +337,13 @@ public class IRBuilder {
                     String func_call = visitFuncCall(ast.exp.LHS.LHS.primary.func_call);
                     ir.append("\t").append(func_call).append("\n");
                 }
+                break;
+            case BLOCK:
+                visitBlock(ast.block);
+                break;
+            case IF:
+                String next_label = getLabel();
+                visitIf(ast.if_ast, next_label);
                 break;
             default:
                 break;
@@ -412,12 +424,17 @@ public class IRBuilder {
 
     private String visitUnaryExp(UnaryExpAST ast) {
         String reg, reg_r;
-        reg_r = visitPrimaryExp(ast.primary);
-        if (ast.op.equals("-")) {
+        reg = reg_r = visitPrimaryExp(ast.primary);
+        if (ast.op_arithmetic.equals("-")) {
             reg = getReg();
             ir.append("\t").append(reg).append(" = sub i32 0, ").append(reg_r).append("\n");
-        } else {
-            reg = reg_r;
+        }
+        if (ast.op_logic.equals("!")) {
+            reg = getReg();
+            ir.append("\t").append(reg).append(" = icmp eq i32 ").append(reg_r).append(", 0\n");
+            reg_r = reg;
+            reg = getReg();
+            ir.append("\t").append(reg).append(" = zext i1 ").append(reg_r).append(" to i32\n");
         }
         return reg;
     }
@@ -476,5 +493,137 @@ public class IRBuilder {
         }
         res.append(")");
         return res.toString();
+    }
+
+    private void visitIf(IfAST ast, String next_label) {
+        LOrExpAST or = ast.cond;
+        String if_label, else_label = null;
+        if_label = getLabel();
+        if (ast.stmt_else != null)
+            else_label = getLabel();
+        int ands_len = ast.cond.ands.size();
+        for (int i = 0; i < ands_len - 1; ++i) {
+            LAndExpAST and = ast.cond.ands.get(i);
+            ArrayList<String> code_list = generateCodeList(and, if_label);
+            String next_and = getLabel();
+            dealCodeList(code_list, next_and, false);
+        }
+        // 最后一个And单独处理
+        LAndExpAST and = ast.cond.ands.get(ands_len - 1);
+        ArrayList<String> code_list = generateCodeList(and, if_label);
+        // String next_and = getLabel(); // 最后一个And，不需要再申请label了
+        if (ast.stmt_else != null)
+            dealCodeList(code_list, else_label, true);
+        else
+            dealCodeList(code_list, next_label, true);
+        ir.append("  ").append(if_label).append(":\n");
+        visitStmt(ast.stmt_if);
+        ir.append("\tbr label %").append(next_label).append("\n");     // 执行完跳转到if外面
+        if (ast.stmt_else != null) {
+            ir.append("  ").append(else_label).append(":\n");
+            visitStmt(ast.stmt_else);
+            ir.append("\tbr label %").append(next_label).append("\n");     // 执行完跳转到if外面
+        }
+        ir.append("  ").append(next_label).append(":\n");
+    }
+
+    private ArrayList<String> generateCodeList(LAndExpAST and, String if_label) {
+        int eqs_len = and.eqs.size();
+        ArrayList<String> code_list = new ArrayList<>();
+
+        // str格式:
+        // instructions
+        // br i1 %cmp_res, label %true_label
+        for (int j = 0; j < eqs_len - 1; ++j) {
+            EqExpAST eq = and.eqs.get(j);
+            String str = visitEqExp(eq);
+            str += " ,label %" + getLabel();
+            code_list.add(str);
+        }
+        // 最后一个Eq单独处理
+        EqExpAST eq = and.eqs.get(eqs_len - 1);
+        String str = visitEqExp(eq);
+        str += ", label %" + if_label;  // 一个And为真跳转执行stmt_if
+        code_list.add(str);
+        return code_list;
+    }
+
+    private void dealCodeList(ArrayList<String> code_list, String next, boolean is_last) {
+        // 处理code_list
+        // 处理后格式:
+        //   instructions
+        //   br i1 %cmp_res, label %true_label, label %false_label
+        // true_label:
+        for (int k = 0, len = code_list.size(); k < len - 1; ++k) {
+            String s = code_list.get(k);
+            String next_eq = s.substring(s.length() - 1);
+            ir.append(s).append(", label %").append(next).append("\n");  // And中有0，直接跳转下一个And
+            ir.append("  ").append(next_eq).append(":\n");  // 下一个Eq的开头
+        }
+        // 最后一个后面接的是下一个And的开头，特殊处理一下
+        String s = code_list.get(code_list.size() - 1);
+        ir.append(s).append(", label %").append(next).append("\n");
+        if (!is_last)
+            ir.append("  ").append(next).append(":\n"); // 最后一个And不需要
+    }
+
+    private String visitEqExp(EqExpAST ast) {
+        StringBuilder res = new StringBuilder();
+        String reg, reg_l, reg_r, op, new_reg;
+        EqExpAST cur_ast = ast;
+        reg = visitRelExp(ast.rel);
+        while (cur_ast.eq != null) {
+            reg_l = reg;
+            reg_r = visitRelExp(cur_ast.eq.rel);
+            reg = getReg();
+            op = cur_ast.op.equals("==") ? "eq" : "ne";
+            res.append("\t").append(reg).append(" = icmp ").append(op).append(" i32 ").append(reg_l).append(", ").append(reg_r).append("\n");
+            new_reg = getReg();
+            res.append("\t").append(new_reg).append(" = zext i1 ").append(reg).append(" to i32\n");
+            reg = new_reg;
+            cur_ast = cur_ast.eq;
+        }
+        // str格式:
+        // instructions
+        // br i1 %cmp_res
+        reg_l = reg;
+        reg = getReg();
+        res.append("\t").append(reg).append(" = icmp ne i32 ").append(reg_l).append(", 0\n");
+        res.append("\tbr i1 ").append(reg);
+        return res.toString();
+    }
+
+    private String visitRelExp(RelExpAST ast) {
+        String reg, reg_l, reg_r, op, new_reg;
+        RelExpAST cur_ast = ast;
+        reg = visitAddExp(ast.add);
+        while (cur_ast.rel != null) {
+            reg_l = reg;
+            reg_r = visitAddExp(cur_ast.rel.add);
+            reg = getReg();
+            op = cur_ast.op.equals("==") ? "eq" : "ne";
+            switch (cur_ast.op) {
+                case ">":
+                    op = "sgt";
+                    break;
+                case "<":
+                    op = "slt";
+                    break;
+                case ">=":
+                    op = "sge";
+                    break;
+                case "<=":
+                    op = "sle";
+                    break;
+                default:
+                    break;
+            }
+            ir.append("\t").append(reg).append(" = icmp ").append(op).append(" i32 ").append(reg_l).append(", ").append(reg_r).append("\n");
+            new_reg = getReg();
+            ir.append("\t").append(new_reg).append(" = zext i1 ").append(reg).append(" to i32\n");
+            reg = new_reg;
+            cur_ast = cur_ast.rel;
+        }
+        return reg;
     }
 }
