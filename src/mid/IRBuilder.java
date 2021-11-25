@@ -466,7 +466,7 @@ public class IRBuilder {
 
         // 添加IR
         res.append("\tret i32 ").append(reg).append("\n");
-
+        reg = getReg();
         return res.toString();
     }
 

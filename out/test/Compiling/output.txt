@@ -65,7 +65,7 @@ define i32 @main(){
   l6:
 	br label %l1
   l1:
-		%40 = load i32, i32* %5
-call void @putint(i32 %40)
+	%40 = load i32, i32* %5
+	call void @putint(i32 %40)
 	ret i32 0
 }
