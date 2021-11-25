@@ -239,7 +239,7 @@ public class IRBuilder {
         try {
             writer = new FileWriter(output);
             bfdWriter = new BufferedWriter(writer);
-            visitCompUnit(ast);
+            ir.append(visitCompUnit(ast));
             bfdWriter.write(ir.toString());
             bfdWriter.close();
             writer.close();
@@ -248,112 +248,182 @@ public class IRBuilder {
         }
     }
 
-    private void visitCompUnit(CompUnitAST ast) {
-        visitFuncDef(ast.getFuncDef());
+    /**
+     * @return CompUnit的IR
+     * */
+    private String visitCompUnit(CompUnitAST ast) {
+        return visitFuncDef(ast.getFuncDef());
     }
 
-    private void visitFuncDef(FuncDefAST ast) {
-        ir.append("define " + "i32 " + "@").append(ast.getIdent()).append("(){\n");
-        visitBlock(ast.block);
-        ir.append("}\n");
+    /**
+     * @return FuncDef的IR
+     * */
+    private String visitFuncDef(FuncDefAST ast) {
+        StringBuilder res = new StringBuilder();
+        res.append("define " + "i32 " + "@").append(ast.getIdent()).append("(){\n");
+        res.append(visitBlock(ast.block));
+        res.append("}\n");
+        return res.toString();
     }
 
-    private void visitBlock(BlockAST ast) {
+    /**
+     * @return Block的IR
+     * */
+    private String visitBlock(BlockAST ast) {
+        StringBuilder res = new StringBuilder();
         ident_table_list.push(new HashMap<>());
         for (BlockItemAST item:ast.asts) {
-            visitBlockItem(item);
+            res.append(visitBlockItem(item));
         }
         ident_table_list.pop();
+        return res.toString();
     }
 
-    private void visitBlockItem(BlockItemAST ast) {
+    /**
+     * @return BlockItem的IR
+     * */
+    private String visitBlockItem(BlockItemAST ast) {
+        String res;
         switch (ast.type) {
             case CONSTDECL:
-                visitConstDecl(ast.const_decl);
+                res = visitConstDecl(ast.const_decl);
                 break;
             case VARDECL:
-                visitVarDecl(ast.var_decl);
+                res = visitVarDecl(ast.var_decl);
                 break;
             case STMT:
-                visitStmt(ast.stmt);
+                res = visitStmt(ast.stmt);
                 break;
             default:
+                res = null;
                 break;
         }
+        return res;
     }
 
-    private void visitConstDecl(ConstDeclAST ast) {
+    /**
+     * @return ConstDecl的IR
+     * */
+    private String visitConstDecl(ConstDeclAST ast) {
+        StringBuilder res = new StringBuilder();
         for (ConstDefAST def : ast.asts) {
-            visitConstDef(def);
+            res.append(visitConstDef(def));
         }
+        return res.toString();
     }
 
-    private void visitConstDef(ConstDefAST ast) {
+    /**
+     * @return ConstDef的IR
+     * */
+    private String visitConstDef(ConstDefAST ast) {
+        StringBuilder res = new StringBuilder();
         String ident = ast.ident;
         // 变量已存在
         if (checkExistedIdent(ident))
             System.exit(-3);
         String reg_l = getReg();
-        ir.append("\t").append(reg_l).append(" = ").append("alloca i32\n");
+
+        // 添加IR
+        res.append("\t").append(reg_l).append(" = ").append("alloca i32\n");
+
         // 用非常量赋值
         if (!checkConstInitVal(ast.init_val))
             System.exit(-3);
-        String reg_r = visitAddExp(ast.init_val);
+
+        // 添加IR
+        StringBuilder add_code = new StringBuilder();
+        String reg_r = visitAddExp(ast.init_val, add_code);
+        res.append(add_code);
+        // 添加IR
+
+        // 添加IR
         ir.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
+
         ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.CONSTVAR, reg_l));
+        return res.toString();
     }
 
-    private void visitVarDecl(VarDeclAST ast) {
+    /**
+     * @return VarDecl的IR
+     * */
+    private String visitVarDecl(VarDeclAST ast) {
+        StringBuilder res = new StringBuilder();
         for (VarDefAST def : ast.asts) {
-            visitVarDef(def);
+            res.append(visitVarDef(def));
         }
+        return res.toString();
     }
 
-    private void visitVarDef(VarDefAST ast) {
+    /**
+     * @return VarDef的IR
+     * */
+    private String visitVarDef(VarDefAST ast) {
+        StringBuilder res = new StringBuilder();
         String ident = ast.ident;
         // 变量已存在
         if (checkExistedIdent(ident))
             System.exit(-3);
         String reg_l = getReg();
         String reg_r;
-        ir.append("\t").append(reg_l).append(" = ").append("alloca i32\n");
+
+        // 添加IR
+        res.append("\t").append(reg_l).append(" = ").append("alloca i32\n");
+
         if (ast.type == VarDefAST.Type.INIT) {
-            reg_r = visitAddExp(ast.init_var);
-            ir.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
+
+            // 添加IR
+            StringBuilder add_code = new StringBuilder();
+            reg_r = visitAddExp(ast.init_var, add_code);
+            res.append(add_code);
+            // 添加IR
+
+            // 添加IR
+            res.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
+
             ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.VAR_INIT, reg_l));
         } else {
             ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.VAR_UNINIT, reg_l));
         }
+        return res.toString();
     }
 
-    private void visitStmt(StmtAST ast) {
+    /**
+     * @return Stmt的IR
+     * */
+    private String visitStmt(StmtAST ast) {
+        StringBuilder res = new StringBuilder();
         switch (ast.type) {
             case ASSIGN:
-                visitAssign(ast.assign_ast);
+                res.append(visitAssign(ast.assign_ast));
                 break;
             case RETURN:
-                visitReturn(ast.return_ast);
+                res.append(visitReturn(ast.return_ast));
                 break;
             case EXP:
                 // void Func 特判
                 if (isVoidFunc(ast.exp)) {
                     String func_call = visitFuncCall(ast.exp.LHS.LHS.primary.func_call);
-                    ir.append("\t").append(func_call).append("\n");
+                    res.append("\t").append(func_call).append("\n");
                 }
                 break;
             case BLOCK:
-                visitBlock(ast.block);
+                res.append(visitBlock(ast.block));
                 break;
             case IF:
                 String next_label = getLabel();
-                visitIf(ast.if_ast, next_label);
+                res.append(visitIf(ast.if_ast, next_label));
                 break;
             default:
                 break;
         }
+        return res.toString();
     }
 
-    private void visitAssign(AssignAST ast) {
+    /**
+     * @return 赋值语句的IR
+     * */
+    private String visitAssign(AssignAST ast) {
+        StringBuilder res = new StringBuilder();
         String lhs = ast.ident;
         AddExpAST add = ast.exp;
         String reg_l;
@@ -367,43 +437,101 @@ public class IRBuilder {
             if (reg_l == null) {
                 System.exit(-3);
             } else {
-                String reg_r = visitAddExp(add);
-                ir.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
+                // 添加IR
+                StringBuilder add_code = new StringBuilder();
+                String reg_r = visitAddExp(add, add_code);
+                res.append(add_code);
+                // 添加IR
+
+                // 添加IR
+                res.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
+
                 ident.type = Ident.Type.VAR_INIT;
             }
         }
+        return res.toString();
     }
 
-    private void visitReturn(ReturnAST ast) {
-        String reg = visitAddExp(ast.exp);
-        ir.append("\tret i32 ").append(reg).append("\n");
+    /**
+     * @return 返回语句的IR
+     * */
+    private String visitReturn(ReturnAST ast) {
+        StringBuilder res = new StringBuilder();
+
+        // 添加IR
+        StringBuilder add_code = new StringBuilder();
+        String reg = visitAddExp(ast.exp, add_code);
+        res.append(add_code);
+        // 添加IR
+
+        // 添加IR
+        res.append("\tret i32 ").append(reg).append("\n");
+
+        return res.toString();
     }
 
-    private String visitAddExp(AddExpAST ast) {
+    /**
+     * @param ast AST节点
+     * @param sb 记录IR代码
+     * @return 表达式最后结果的reg
+     * */
+    private String visitAddExp(AddExpAST ast, StringBuilder sb) {
         // 变量未定义
         if (!checkInitExp(ast))
             System.exit(-3);
         String reg, reg_l, reg_r, op;
         AddExpAST cur_ast = ast;
-        reg = visitMulExp(ast.LHS);
+
+        // 添加IR
+        StringBuilder mul_code = new StringBuilder();
+        reg = visitMulExp(ast.LHS, mul_code);
+        sb.append(mul_code);
+        // 添加IR
+
         while (cur_ast.RHS != null) {
             reg_l = reg;
-            reg_r = visitMulExp(cur_ast.RHS.LHS);
+
+            // 添加IR
+            mul_code = new StringBuilder();
+            reg_r = visitMulExp(cur_ast.RHS.LHS, mul_code);
+            sb.append(mul_code);
+            // 添加IR
+
             reg = getReg();
             op = cur_ast.op.equals("+") ? "add" : "sub";
-            ir.append("\t").append(reg).append(" = ").append(op).append(" i32 ").append(reg_l).append(", ").append(reg_r).append("\n");
+
+            // 添加IR
+            sb.append("\t").append(reg).append(" = ").append(op).append(" i32 ").append(reg_l).append(", ").append(reg_r).append("\n");
+
             cur_ast = cur_ast.RHS;
         }
         return reg;
     }
 
-    private String visitMulExp(MulExpAST ast) {
+    /**
+     * @param ast AST节点
+     * @param sb 记录IR代码
+     * @return 表达式最后结果的reg
+     * */
+    private String visitMulExp(MulExpAST ast, StringBuilder sb) {
         String reg, reg_l, reg_r, op;
         MulExpAST cur_ast = ast;
-        reg = visitUnaryExp(ast.LHS);
+
+        // 添加IR
+        StringBuilder unary_code = new StringBuilder();
+        reg = visitUnaryExp(ast.LHS, unary_code);
+        sb.append(unary_code);
+        // 添加IR
+
         while (cur_ast.RHS != null) {
             reg_l = reg;
-            reg_r = visitUnaryExp(cur_ast.RHS.LHS);
+
+            // 添加IR
+            unary_code = new StringBuilder();
+            reg_r = visitUnaryExp(cur_ast.RHS.LHS, unary_code);
+            sb.append(unary_code);
+            // 添加IR
+
             reg = getReg();
             switch (cur_ast.op) {
                 case "*":
@@ -419,34 +547,66 @@ public class IRBuilder {
                     op = "";
                     break;
             }
-            ir.append("\t").append(reg).append(" = ").append(op).append(" i32 ").append(reg_l).append(", ").append(reg_r).append("\n");
+
+            // 添加IR
+            sb.append("\t").append(reg).append(" = ").append(op).append(" i32 ").append(reg_l).append(", ").append(reg_r).append("\n");
+
             cur_ast = cur_ast.RHS;
         }
         return reg;
     }
 
-    private String visitUnaryExp(UnaryExpAST ast) {
+    /**
+     * @param ast AST节点
+     * @param sb 记录IR代码
+     * @return 表达式最后结果的reg
+     * */
+    private String visitUnaryExp(UnaryExpAST ast, StringBuilder sb) {
         String reg, reg_r;
-        reg = reg_r = visitPrimaryExp(ast.primary);
+
+        // 添加IR
+        StringBuilder primary_code = new StringBuilder();
+        reg = reg_r = visitPrimaryExp(ast.primary, primary_code);
+        sb.append(primary_code);
+        // 添加IR
+
         if (ast.op_arithmetic.equals("-")) {
             reg = getReg();
-            ir.append("\t").append(reg).append(" = sub i32 0, ").append(reg_r).append("\n");
+
+            // 添加IR
+            sb.append("\t").append(reg).append(" = sub i32 0, ").append(reg_r).append("\n");
         }
         if (ast.op_logic.equals("!")) {
             reg = getReg();
-            ir.append("\t").append(reg).append(" = icmp eq i32 ").append(reg_r).append(", 0\n");
+
+            // 添加IR
+            sb.append("\t").append(reg).append(" = icmp eq i32 ").append(reg_r).append(", 0\n");
+
             reg_r = reg;
             reg = getReg();
-            ir.append("\t").append(reg).append(" = zext i1 ").append(reg_r).append(" to i32\n");
+
+            // 添加IR
+            sb.append("\t").append(reg).append(" = zext i1 ").append(reg_r).append(" to i32\n");
         }
         return reg;
     }
 
-    private String visitPrimaryExp(PrimaryExpAST ast) {
+    /**
+     * @param ast AST节点
+     * @param sb 记录IR代码
+     * @return 表达式最后结果的reg
+     * */
+    private String visitPrimaryExp(PrimaryExpAST ast, StringBuilder sb) {
         String reg, reg_r;
         switch (ast.type) {
             case EXP:
-                reg = visitAddExp(ast.exp);
+
+                // 添加IR
+                StringBuilder add_code = new StringBuilder();
+                reg = visitAddExp(ast.exp, add_code);
+                sb.append(add_code);
+                // 添加IR
+
                 break;
             case LVAL:
                 Ident ident;
@@ -456,11 +616,17 @@ public class IRBuilder {
                 }
                 reg_r = ident.reg;
                 reg = getReg();
-                ir.append("\t").append(reg).append(" = load i32, i32* ").append(reg_r).append("\n");
+
+                // 添加IR
+                sb.append("\t").append(reg).append(" = load i32, i32* ").append(reg_r).append("\n");
+
                 break;
             case FUNC_CALL:
                 reg = getReg();
-                ir.append("\t").append(reg).append(" = ").append(visitFuncCall(ast.func_call)).append("\n");
+
+                // 添加IR
+                sb.append("\t").append(reg).append(" = ").append(visitFuncCall(ast.func_call)).append("\n");
+
                 break;
             case NUMBER:
                 reg = ast.number;
@@ -472,8 +638,12 @@ public class IRBuilder {
         return reg;
     }
 
+    /**
+    *  @return 函数调用的IR
+    * */
     private String visitFuncCall(FuncCallAST ast) {
         StringBuilder res = new StringBuilder();
+        ArrayList<String> regs = new ArrayList<>();
         String ident = ast.ident;
         Func func = searchFunc(ident);
         if (func == null) {
@@ -490,15 +660,38 @@ public class IRBuilder {
             default:
                 break;
         }
-        res.append("call ").append(type).append(" @").append(ident).append("(");
+
+        StringBuilder add_code;
+        String reg;
         for (AddExpAST add : ast.params) {
-            res.append("i32 ").append(visitAddExp(add));
+            // 添加IR
+            add_code = new StringBuilder();
+            reg = visitAddExp(add, add_code);
+            res.append(add_code);
+            // 添加IR
+
+            // 记录参数的reg
+            regs.add(reg);
+        }
+        res.append("call ").append(type).append(" @").append(ident).append("(");
+        if (!regs.isEmpty()) {
+            res.append("i32 ").append(regs.get(0));
+            for (int i = 1; i < regs.size(); ++i) {
+                res.append(", i32 ").append(regs.get(i));
+            }
         }
         res.append(")");
         return res.toString();
     }
 
-    private void visitIf(IfAST ast, String next_label) {
+    /**
+     * @param ast AST节点
+     * @param next_label if后面的代码块的label
+     * @return If语句的IR
+     * */
+    private String visitIf(IfAST ast, String next_label) {
+        StringBuilder res = new StringBuilder();
+
         LOrExpAST or = ast.cond;
         String if_label, else_label = null;
         if_label = getLabel();
@@ -509,27 +702,38 @@ public class IRBuilder {
             LAndExpAST and = ast.cond.ands.get(i);
             ArrayList<String> code_list = generateCodeList(and, if_label);
             String next_and = getLabel();
-            dealCodeList(code_list, next_and, false);
+
+            // 添加IR
+            res.append(dealCodeList(code_list, next_and, false));
         }
         // 最后一个And单独处理
         LAndExpAST and = ast.cond.ands.get(ands_len - 1);
         ArrayList<String> code_list = generateCodeList(and, if_label);
         // String next_and = getLabel(); // 最后一个And，不需要再申请label了
+
+        // 添加IR
         if (ast.stmt_else != null)
-            dealCodeList(code_list, else_label, true);
+            res.append(dealCodeList(code_list, else_label, true));
         else
-            dealCodeList(code_list, next_label, true);
-        ir.append("  ").append(if_label).append(":\n");
-        visitStmt(ast.stmt_if);
-        ir.append("\tbr label %").append(next_label).append("\n");     // 执行完跳转到if外面
+            res.append(dealCodeList(code_list, next_label, true));
+        res.append("  ").append(if_label).append(":\n");
+        res.append(visitStmt(ast.stmt_if));
+        res.append("\tbr label %").append(next_label).append("\n");     // 执行完跳转到if外面
         if (ast.stmt_else != null) {
-            ir.append("  ").append(else_label).append(":\n");
-            visitStmt(ast.stmt_else);
-            ir.append("\tbr label %").append(next_label).append("\n");     // 执行完跳转到if外面
+            res.append("  ").append(else_label).append(":\n");
+            res.append(visitStmt(ast.stmt_else));
+            res.append("\tbr label %").append(next_label).append("\n");     // 执行完跳转到if外面
         }
-        ir.append("  ").append(next_label).append(":\n");
+        res.append("  ").append(next_label).append(":\n");      // 添加If语句后块的label
+        // 添加IR
+
+        return res.toString();
     }
 
+    /**
+    * @param if_label If语句条件为真时需要执行代码的label
+    * @return Cond中每个AndExp按照短路求值生成的IR的列表，只包含条件为真时的跳转label
+    * */
     private ArrayList<String> generateCodeList(LAndExpAST and, String if_label) {
         int eqs_len = and.eqs.size();
         ArrayList<String> code_list = new ArrayList<>();
@@ -551,7 +755,12 @@ public class IRBuilder {
         return code_list;
     }
 
-    private void dealCodeList(ArrayList<String> code_list, String next, boolean is_last) {
+    /**
+     * 添加条件为假时的跳转label
+    * @return If语句Cond中AndExp按照短路求值生成的IR
+    * */
+    private String dealCodeList(ArrayList<String> code_list, String next, boolean is_last) {
+        StringBuilder res = new StringBuilder();
         // 处理code_list
         // 处理后格式:
         //   instructions
@@ -559,25 +768,42 @@ public class IRBuilder {
         // true_label:
         for (int k = 0, len = code_list.size(); k < len - 1; ++k) {
             String s = code_list.get(k);
-            String next_eq = s.substring(s.length() - 1);
-            ir.append(s).append(", label %").append(next).append("\n");  // And中有0，直接跳转下一个And
-            ir.append("  ").append(next_eq).append(":\n");  // 下一个Eq的开头
+            String next_eq = s.substring(s.length() - 2);
+            res.append(s).append(", label %").append(next).append("\n");  // And中有0，直接跳转下一个And
+            res.append("  ").append(next_eq).append(":\n");  // 下一个Eq的开头
         }
         // 最后一个后面接的是下一个And的开头，特殊处理一下
         String s = code_list.get(code_list.size() - 1);
-        ir.append(s).append(", label %").append(next).append("\n");
+        res.append(s).append(", label %").append(next).append("\n");
         if (!is_last)
-            ir.append("  ").append(next).append(":\n"); // 最后一个And不需要
+            res.append("  ").append(next).append(":\n"); // 最后一个And不需要
+
+        return res.toString();
     }
 
+    /**
+     * @return EqExp的IR，结果寄存器刚好在最后面，所以不用返回寄存器，可以直接返回IR
+     * */
     private String visitEqExp(EqExpAST ast) {
         StringBuilder res = new StringBuilder();
         String reg, reg_l, reg_r, op, new_reg;
         EqExpAST cur_ast = ast;
-        reg = visitRelExp(ast.rel);
+
+        // 添加IR
+        StringBuilder rel_code = new StringBuilder();
+        reg = visitRelExp(ast.rel, rel_code);
+        res.append(rel_code);
+        // 添加IR
+
         while (cur_ast.eq != null) {
             reg_l = reg;
-            reg_r = visitRelExp(cur_ast.eq.rel);
+
+            // 添加IR
+            rel_code = new StringBuilder();
+            reg_r = visitRelExp(cur_ast.eq.rel, rel_code);
+            res.append(rel_code);
+            // 添加IR
+
             reg = getReg();
             op = cur_ast.op.equals("==") ? "eq" : "ne";
             res.append("\t").append(reg).append(" = icmp ").append(op).append(" i32 ").append(reg_l).append(", ").append(reg_r).append("\n");
@@ -596,13 +822,30 @@ public class IRBuilder {
         return res.toString();
     }
 
-    private String visitRelExp(RelExpAST ast) {
+    /**
+     * @param ast AST节点
+     * @param sb 记录IR代码
+     * @return 表达式最后结果的reg
+     * */
+    private String visitRelExp(RelExpAST ast, StringBuilder sb) {
         String reg, reg_l, reg_r, op, new_reg;
         RelExpAST cur_ast = ast;
-        reg = visitAddExp(ast.add);
+
+        // 添加IR
+        StringBuilder add_code = new StringBuilder();
+        reg = visitAddExp(ast.add, add_code);
+        sb.append(add_code);
+        // 添加IR
+
         while (cur_ast.rel != null) {
             reg_l = reg;
-            reg_r = visitAddExp(cur_ast.rel.add);
+
+            // 添加IR
+            add_code = new StringBuilder();
+            reg_r = visitAddExp(cur_ast.rel.add, add_code);
+            sb.append(add_code);
+            // 添加IR
+
             reg = getReg();
             op = cur_ast.op.equals("==") ? "eq" : "ne";
             switch (cur_ast.op) {
@@ -621,9 +864,15 @@ public class IRBuilder {
                 default:
                     break;
             }
-            ir.append("\t").append(reg).append(" = icmp ").append(op).append(" i32 ").append(reg_l).append(", ").append(reg_r).append("\n");
+
+            // 添加IR
+            sb.append("\t").append(reg).append(" = icmp ").append(op).append(" i32 ").append(reg_l).append(", ").append(reg_r).append("\n");
+
             new_reg = getReg();
-            ir.append("\t").append(new_reg).append(" = zext i1 ").append(reg).append(" to i32\n");
+
+            // 添加IR
+            sb.append("\t").append(new_reg).append(" = zext i1 ").append(reg).append(" to i32\n");
+
             reg = new_reg;
             cur_ast = cur_ast.rel;
         }
