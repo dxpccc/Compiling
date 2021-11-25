@@ -5,7 +5,6 @@ import util.AST.*;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Stack;
 
 class Ident {
@@ -42,6 +41,7 @@ class Func {
 public class IRBuilder {
     private final String path;
     private int reg_code = 0;
+    private int label_code = 0;
     private final StringBuilder ir = new StringBuilder();
     private Stack<HashMap<String, Ident>> ident_table_list = new Stack<>();
     private HashMap<String, Func> function_table = new HashMap<>();
@@ -225,8 +225,11 @@ public class IRBuilder {
         return "%" + (++reg_code);
     }
 
+    /*
+    *  获取label
+    * */
     private String getLabel() {
-        return String.valueOf(++reg_code);
+        return "l" + (++label_code);
     }
 
     public void generateIR(CompUnitAST ast) {
