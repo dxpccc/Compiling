@@ -23,49 +23,49 @@ define i32 @main(){
 	ret i32 %11
 	br label %l1
   l3:
-	%12 = load i32, i32* %2
-	%13 = icmp eq i32 %12, 10
-	%14 = zext i1 %13 to i32
-	%15 = icmp ne i32 %14, 0
-	br i1 %15 ,label %l8, label %l7
+	%13 = load i32, i32* %2
+	%14 = icmp eq i32 %13, 10
+	%15 = zext i1 %14 to i32
+	%16 = icmp ne i32 %15, 0
+	br i1 %16 ,label %l8, label %l7
   l8:
-	%16 = load i32, i32* %1
-	%17 = icmp eq i32 %16, 1
-	%18 = zext i1 %17 to i32
-	%19 = icmp ne i32 %18, 0
-	br i1 %19, label %l6, label %l7
+	%17 = load i32, i32* %1
+	%18 = icmp eq i32 %17, 1
+	%19 = zext i1 %18 to i32
+	%20 = icmp ne i32 %19, 0
+	br i1 %20, label %l6, label %l7
   l6:
 	store i32 25, i32* %1
 	br label %l5
   l7:
-	%20 = load i32, i32* %2
-	%21 = icmp eq i32 %20, 10
-	%22 = zext i1 %21 to i32
-	%23 = icmp ne i32 %22, 0
-	br i1 %23 ,label %l12, label %l11
+	%21 = load i32, i32* %2
+	%22 = icmp eq i32 %21, 10
+	%23 = zext i1 %22 to i32
+	%24 = icmp ne i32 %23, 0
+	br i1 %24 ,label %l12, label %l11
   12:
-	%24 = load i32, i32* %1
-	%25 = sub i32 0, 5
-	%26 = icmp eq i32 %24, %25
-	%27 = zext i1 %26 to i32
-	%28 = icmp ne i32 %27, 0
-	br i1 %28, label %l10, label %l11
+	%25 = load i32, i32* %1
+	%26 = sub i32 0, 5
+	%27 = icmp eq i32 %25, %26
+	%28 = zext i1 %27 to i32
+	%29 = icmp ne i32 %28, 0
+	br i1 %29, label %l10, label %l11
   l10:
-	%29 = load i32, i32* %1
-	%30 = add i32 %29, 15
-	store i32 %30, i32* %1
+	%30 = load i32, i32* %1
+	%31 = add i32 %30, 15
+	store i32 %31, i32* %1
 	br label %l9
   l11:
-	%31 = load i32, i32* %1
-	%32 = sub i32 0, %31
-	store i32 %32, i32* %1
+	%32 = load i32, i32* %1
+	%33 = sub i32 0, %32
+	store i32 %33, i32* %1
 	br label %l9
   l9:
 	br label %l5
   l5:
 	br label %l1
   l1:
-	%33 = load i32, i32* %1
-	call void @putint(i32 %33)
+	%34 = load i32, i32* %1
+	call void @putint(i32 %34)
 	ret i32 0
 }
