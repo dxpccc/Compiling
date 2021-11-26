@@ -1,17 +1,13 @@
 package util.AST;
 
+import java.util.ArrayList;
+
 public class CompUnitAST {
-    private FuncDefAST ast;
+    public final ArrayList<GlobalDeclAST> globals;
+    public final FuncDefAST func_def;
 
-    public CompUnitAST(FuncDefAST ast) {
-        this.ast = ast;
-    }
-
-    public CompUnitAST() {
-        this(null);
-    }
-
-    public FuncDefAST getFuncDef() {
-        return ast;
+    public CompUnitAST(ArrayList<GlobalDeclAST> globals, FuncDefAST func_def) {
+        this.globals = globals;
+        this.func_def = func_def;
     }
 }

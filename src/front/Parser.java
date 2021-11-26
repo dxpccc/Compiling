@@ -9,10 +9,12 @@ import java.util.ArrayList;
 public class Parser {
     private ArrayList<Token> tokens;
     private int index;
+    private int mark;
 
     public Parser(ArrayList<Token> tokens) {
         this.tokens = tokens;
         index = -1;
+        mark = -1;
     }
 
     private Token getNextToken() {
@@ -27,6 +29,16 @@ public class Parser {
         --index;
     }
 
+    /************ token流标记和还原 ************/
+    private void mark() {
+        mark = index;
+    }
+
+    private void reset() {
+        index = mark;
+    }
+    /************ token流标记和还原 ************/
+
     private Token nextToken() {
         if (index < tokens.size() - 1) {
             return tokens.get(index + 1);
@@ -39,14 +51,55 @@ public class Parser {
     }
 
     /*
-    * CompUnit -> FuncDef
+    * CompUnit -> { Decl } FuncDef
     * */
     private CompUnitAST parseCompUnit() {
+        Token token;
+        GlobalDeclAST decl;
+        ArrayList<GlobalDeclAST> global = new ArrayList<>();
+        while (true) {
+            mark();
+            decl = parseDecl();
+            if (decl == null) {
+                reset();
+                break;
+            } else {
+                global.add(decl);
+            }
+        }
         FuncDefAST funcDefAST = parseFuncDef();
         if (funcDefAST == null)
             return null;
         else
-            return new CompUnitAST(funcDefAST);
+            return new CompUnitAST(global, funcDefAST);
+    }
+
+    /*
+    * Decl -> ConstDecl | VarDecl
+    * */
+    private GlobalDeclAST parseDecl() {
+        Token token;
+        ConstDeclAST const_decl;
+        VarDeclAST var_decl;
+        if ((token = nextToken()) == null) {
+            return null;
+        } else if (token.getType() == TokenType.CONST) {
+            const_decl = parseConstDecl();
+            if (const_decl == null) {
+                return null;
+            } else {
+                return new GlobalDeclAST(GlobalDeclAST.Type.CONST, const_decl, null);
+            }
+        } else if (token.getType() == TokenType.INT) {
+            var_decl = parseVarDecl();
+            if (var_decl == null) {
+                return null;
+            } else {
+                return new GlobalDeclAST(GlobalDeclAST.Type.VAR, null, var_decl);
+            }
+        } else {
+            return null;
+        }
     }
 
     /*

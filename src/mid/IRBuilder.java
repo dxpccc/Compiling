@@ -2,9 +2,11 @@ package mid;
 
 import util.AST.*;
 
+import javax.sql.rowset.spi.SyncResolver;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Stack;
 
 class Ident {
@@ -12,15 +14,26 @@ class Ident {
         CONSTVAR,
         VAR_INIT,
         VAR_UNINIT,
+        GLOBAL_CONST,
+        GLOBAL_VAR_INIT,
+        GLOBAL_VAR_UNINIT
     }
     public final String ident;
     public Type type;
     public final String reg;
+    public final String value;
 
-    public Ident(String ident, Type type, String reg) {
+    public Ident(String ident, Type type, String reg, String value) {
         this.ident = ident;
         this.type = type;
         this.reg = reg;
+        if (type == Type.GLOBAL_CONST || type == Type.GLOBAL_VAR_INIT) {
+            this.value = value;
+        } else if (type == Type.GLOBAL_VAR_UNINIT) {
+            this.value = "0";
+        } else {
+            this.value = null;
+        }
     }
 }
 
@@ -45,9 +58,11 @@ public class IRBuilder {
     private final StringBuilder ir = new StringBuilder();
     private Stack<HashMap<String, Ident>> ident_table_list = new Stack<>();
     private HashMap<String, Func> function_table = new HashMap<>();
+    private HashMap<String, Ident> globals = new HashMap<>();
 
     public IRBuilder(String path) {
         this.path = path;
+
         ir.append("declare i32 @getint()\n");
         ir.append("declare i32 @getch()\n");
         ir.append("declare void @putint(i32)\n");
@@ -56,13 +71,15 @@ public class IRBuilder {
         function_table.put("getch", new Func(Func.Type.INT, "getch"));
         function_table.put("putint", new Func(Func.Type.VOID, "putint"));
         function_table.put("putch", new Func(Func.Type.VOID, "putch"));
+
+        ident_table_list.push(globals);
     }
 
     public IRBuilder() {
         this(null);
     }
 
-    /* *********** 常量类型检查 ************* */
+    /* *********** 常量初始化检查 ************* */
     private boolean checkConstInitVal(AddExpAST ast) {
         if (ast.RHS == null) {
             return checkConstMulExp(ast.LHS);
@@ -102,7 +119,7 @@ public class IRBuilder {
         }
         return res;
     }
-    /* ************ 常量类型检查 ************* */
+    /* ************ 常量初始化检查 ************* */
 
     /* *********** 变量初始化检查 *********** */
     private boolean checkInitExp(AddExpAST ast) {
@@ -133,7 +150,8 @@ public class IRBuilder {
                 break;
             case LVAL:
                 Ident ident = searchIdent(ast.l_val);
-                res = (ident != null && (ident.type == Ident.Type.VAR_INIT || ident.type == Ident.Type.CONSTVAR));
+                res = (ident != null && (ident.type == Ident.Type.VAR_INIT || ident.type == Ident.Type.CONSTVAR
+                        || ident.type == Ident.Type.GLOBAL_CONST || ident.type == Ident.Type.GLOBAL_VAR_INIT || ident.type == Ident.Type.GLOBAL_VAR_UNINIT));
                 break;
             case FUNC_CALL:
                 // 返回值为void的函数不允许出现在exp中，Stmt中特判
@@ -162,6 +180,169 @@ public class IRBuilder {
     }
     /* ************ 变量命名检查 ************ */
 
+    /* ************ 全局常量初始化检查 ************* */
+    private boolean checkGlobalConstInitVal(AddExpAST ast) {
+        if (ast.RHS == null) {
+            return checkGlobalConstMulExp(ast.LHS);
+        } else {
+            return checkGlobalConstMulExp(ast.LHS) && checkGlobalConstInitVal(ast.RHS);
+        }
+    }
+
+    private boolean checkGlobalConstMulExp(MulExpAST ast) {
+        if (ast.RHS == null) {
+            return checkGlobalConstUnaryExp(ast.LHS);
+        } else {
+            return checkGlobalConstUnaryExp(ast.LHS) && checkGlobalConstMulExp(ast.RHS);
+        }
+    }
+
+    private boolean checkGlobalConstUnaryExp(UnaryExpAST ast) {
+        return checkGlobalConstPrimaryExp(ast.primary);
+    }
+
+    private boolean checkGlobalConstPrimaryExp(PrimaryExpAST ast) {
+        boolean res = false;
+        switch (ast.type) {
+            case EXP:
+                res = checkGlobalConstInitVal(ast.exp);
+                break;
+            case NUMBER:
+                res = true;
+            case LVAL:
+                Ident ident;
+                if ((ident = searchLocalIdent(ast.l_val)) != null && ident.type == Ident.Type.GLOBAL_CONST) {
+                    res = true;
+                }
+                break;
+            case FUNC_CALL:
+            default:
+                break;
+        }
+        return res;
+    }
+    /* ************ 全局常量初始化检查 ************* */
+
+    /* ************ 全局变量初始化检查 *********** */
+    private boolean checkGlobalVarInit(AddExpAST ast) {
+        if (ast.RHS == null) {
+            return checkGlobalVarMulExp(ast.LHS);
+        } else {
+            return checkGlobalVarMulExp(ast.LHS) && checkGlobalVarInit(ast.RHS);
+        }
+    }
+
+    private boolean checkGlobalVarMulExp(MulExpAST ast) {
+        if (ast.RHS == null) {
+            return checkGlobalVarUnaryExp(ast.LHS);
+        } else {
+            return checkGlobalVarUnaryExp(ast.LHS) && checkGlobalVarMulExp(ast.RHS);
+        }
+    }
+
+    private boolean checkGlobalVarUnaryExp(UnaryExpAST ast) {
+        return checkGlobalVarPrimaryExp(ast.primary);
+    }
+
+    private boolean checkGlobalVarPrimaryExp(PrimaryExpAST ast) {
+        boolean res = false;
+        switch (ast.type) {
+            case EXP:
+                res = checkGlobalVarInit(ast.exp);
+                break;
+            case LVAL:
+                Ident ident;
+                if ((ident = searchLocalIdent(ast.l_val)) != null && ident.type == Ident.Type.GLOBAL_CONST) {
+                    res = true;
+                }
+                break;
+            case NUMBER:
+                res = true;
+                break;
+            case FUNC_CALL:
+            default:
+                break;
+        }
+        return res;
+    }
+    /* ************ 全局变量初始化检查 *********** */
+
+    /* ************** 计算常量表达式的值 *************** */
+    private int calculateAddExp(AddExpAST ast) {
+        int res, res_l, res_r;
+        String op;
+        AddExpAST cur_ast = ast;
+        res = calculateMulExp(ast.LHS);
+        while (cur_ast.RHS != null) {
+            res_l = res;
+            res_r = calculateMulExp(cur_ast.RHS.LHS);
+            op = cur_ast.op;
+            if (op.equals("+")) {
+                res = res_l + res_r;
+            } else {
+                res = res_l - res_r;
+            }
+            cur_ast = cur_ast.RHS;
+        }
+        return res;
+    }
+
+    private int calculateMulExp(MulExpAST ast) {
+        int res, res_l, res_r;
+        String op;
+        MulExpAST cur_ast = ast;
+        res = calculateUnaryExp(cur_ast.LHS);
+        while (cur_ast.RHS != null) {
+            res_l = res;
+            res_r = calculateUnaryExp(cur_ast.RHS.LHS);
+            op = cur_ast.op;
+            switch (op) {
+                case "*":
+                    res = res_l * res_r;
+                    break;
+                case "/":
+                    res = res_l / res_r;
+                    break;
+                case "%":
+                    res = res_l % res_r;
+                default:
+                    break;
+            }
+            cur_ast = cur_ast.RHS;
+        }
+        return res;
+    }
+
+    private int calculateUnaryExp(UnaryExpAST ast) {
+        int res = calculatePrimaryExp(ast.primary);
+        if (ast.op_arithmetic.equals("-")) {
+            res = -res;
+        }
+        return res;
+    }
+
+    private int calculatePrimaryExp(PrimaryExpAST ast) {
+        int res;
+        switch (ast.type) {
+            case EXP:
+                res = calculateAddExp(ast.exp);
+                break;
+            case NUMBER:
+                res = Integer.parseInt(ast.number);
+                break;
+            case LVAL:
+                Ident ident = searchIdent(ast.l_val);
+                res = Integer.parseInt(ident.value);
+                break;
+            case FUNC_CALL:
+            default:
+                res = 0;
+                break;
+        }
+        return res;
+    }
+    /* ************** 计算常量表达式的值 *************** */
+
     /*
     * 判断Exp是否为单独的 void Func() 调用
     * */
@@ -185,7 +366,7 @@ public class IRBuilder {
     }
 
     private Ident searchLocalIdent(String ident) {
-        if (ident.isEmpty())
+        if (ident_table_list.isEmpty())
             return null;
         else
             return ident_table_list.peek().get(ident);
@@ -219,14 +400,14 @@ public class IRBuilder {
     /* *************** 检查函数是否声明 ***************** */
 
     /*
-     * 获取虚拟寄存器
+     * 分配虚拟寄存器
      * */
     private String getReg() {
         return "%" + (++reg_code);
     }
 
     /*
-    *  获取label
+    *  分配label
     * */
     private String getLabel() {
         return "l" + (++label_code);
@@ -252,7 +433,98 @@ public class IRBuilder {
      * @return CompUnit的IR
      * */
     private String visitCompUnit(CompUnitAST ast) {
-        return visitFuncDef(ast.getFuncDef());
+        StringBuilder res = new StringBuilder();
+        for (GlobalDeclAST global : ast.globals) {
+            res.append(visitGlobalDecl(global));
+        }
+        res.append(visitFuncDef(ast.func_def));
+        return res.toString();
+    }
+
+    private String visitGlobalDecl(GlobalDeclAST ast) {
+        if (ast.type == GlobalDeclAST.Type.CONST) {
+            return visitGlobalConstDecl(ast.const_decl);
+        } else if (ast.type == GlobalDeclAST.Type.VAR) {
+            return visitGlobalVarDecl(ast.var_decl);
+        } else {
+            return null;
+        }
+    }
+
+    private String visitGlobalConstDecl(ConstDeclAST ast) {
+        StringBuilder res = new StringBuilder();
+        for (ConstDefAST def : ast.asts) {
+            res.append(visitGlobalConstDef(def));
+        }
+        return res.toString();
+    }
+
+    private String visitGlobalVarDecl(VarDeclAST ast) {
+        StringBuilder res = new StringBuilder();
+        for (VarDefAST def : ast.asts) {
+            res.append(visitGlobalVarDef(def));
+        }
+        return res.toString();
+    }
+
+    private String visitGlobalConstDef(ConstDefAST ast) {
+        StringBuilder res = new StringBuilder();
+        String ident = ast.ident;
+
+        // 全局变量已存在
+        if (checkExistedLocalIdent(ident)) {
+            System.out.println("[IRBuilder] 语义错误: 全局常量 " + ident + " 已定义");
+            System.exit(-3);
+        }
+
+        // 非常值赋值
+        if (!checkGlobalConstInitVal(ast.init_val)) {
+            System.out.println("[IRBuilder] 语义错误: 全局常量 " + ident + " 不能用变量赋值");
+            System.exit(-3);
+        }
+
+        // @a = dso_local global i32 5
+        String reg = "@" + ident;
+
+        int value = calculateAddExp(ast.init_val);
+
+        // 添加IR
+        res.append(reg).append(" = dso_local global i32 ").append(value).append("\n");
+
+        globals.put(ident, new Ident(ident, Ident.Type.GLOBAL_CONST, reg, String.valueOf(value)));
+        return res.toString();
+    }
+
+    private String visitGlobalVarDef(VarDefAST ast) {
+        StringBuilder res = new StringBuilder();
+        String ident = ast.ident;
+
+        // 全局变量已存在
+        if (checkExistedLocalIdent(ident)) {
+            System.out.println("[IRBuilder] 语义错误: 全局变量 " + ident + " 已定义");
+            System.exit(-3);
+        }
+
+        String reg = "@" + ident;
+
+        if (ast.type == VarDefAST.Type.INIT) {
+            // 非常值赋值
+            if (!checkGlobalConstInitVal(ast.init_var)) {
+                System.out.println("[IRBuilder] 语义错误: 全局变量 " + ident + " 不能用变量赋值");
+                System.exit(-3);
+            }
+
+            int value = calculateAddExp(ast.init_var);
+
+            // 添加IR
+            res.append(reg).append(" = dso_local global i32 ").append(value).append("\n");
+
+            globals.put(ident, new Ident(ident, Ident.Type.GLOBAL_VAR_INIT, reg, String.valueOf(value)));
+        } else {
+            globals.put(ident,  new Ident(ident, Ident.Type.GLOBAL_VAR_UNINIT, reg, "0"));
+        }
+
+        return res.toString();
     }
 
     /**
@@ -260,7 +532,7 @@ public class IRBuilder {
      * */
     private String visitFuncDef(FuncDefAST ast) {
         StringBuilder res = new StringBuilder();
-        res.append("define " + "i32 " + "@").append(ast.getIdent()).append("(){\n");
+        res.append("define dso_local i32 @").append(ast.getIdent()).append("(){\n");
         res.append(visitBlock(ast.block));
         res.append("}\n");
         return res.toString();
@@ -319,16 +591,21 @@ public class IRBuilder {
         StringBuilder res = new StringBuilder();
         String ident = ast.ident;
         // 块内局部变量已存在
-        if (checkExistedLocalIdent(ident))
+        if (checkExistedLocalIdent(ident)) {
+            System.out.println("[IRBuilder] 语义错误: " + ident + " 已定义");
             System.exit(-3);
+        }
+
+        // 用非常量赋值
+        if (!checkConstInitVal(ast.init_val)) {
+            System.out.println("[IRBuilder] 语义错误: " + ident + " 不能用变量赋值");
+            System.exit(-3);
+        }
+
         String reg_l = getReg();
 
         // 添加IR
         res.append("\t").append(reg_l).append(" = ").append("alloca i32\n");
-
-        // 用非常量赋值
-        if (!checkConstInitVal(ast.init_val))
-            System.exit(-3);
 
         // 添加IR
         StringBuilder add_code = new StringBuilder();
@@ -337,9 +614,9 @@ public class IRBuilder {
         // 添加IR
 
         // 添加IR
-        ir.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
+        res.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
 
-        ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.CONSTVAR, reg_l));
+        ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.CONSTVAR, reg_l, null));
         return res.toString();
     }
 
@@ -361,8 +638,11 @@ public class IRBuilder {
         StringBuilder res = new StringBuilder();
         String ident = ast.ident;
         // 块内局部变量已存在
-        if (checkExistedLocalIdent(ident))
+        if (checkExistedLocalIdent(ident)) {
+            System.out.println("[IRBuilder] 语义错误: " + ident + " 已定义");
             System.exit(-3);
+        }
+
         String reg_l = getReg();
         String reg_r;
 
@@ -380,9 +660,9 @@ public class IRBuilder {
             // 添加IR
             res.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
 
-            ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.VAR_INIT, reg_l));
+            ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.VAR_INIT, reg_l, null));
         } else {
-            ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.VAR_UNINIT, reg_l));
+            ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.VAR_UNINIT, reg_l, null));
         }
         return res.toString();
     }
@@ -429,12 +709,15 @@ public class IRBuilder {
         String reg_l;
         Ident ident = searchIdent(lhs);
         if (ident == null) {
+            System.out.println("[IRBuilder] 语义错误: 变量 " + lhs + " 未定义");
             System.exit(-3);
         } else if (ident.type == Ident.Type.CONSTVAR) {
+            System.out.println("[IRBuilder] 语义错误: 常量 " + lhs + " 不能被赋值");
             System.exit(-3);
         } else {
             reg_l = ident.reg;
             if (reg_l == null) {
+                System.out.println("[IRBuilder] 语义错误: 变量 " + lhs + " 未定义");
                 System.exit(-3);
             } else {
                 // 添加IR
@@ -477,8 +760,11 @@ public class IRBuilder {
      * */
     private String visitAddExp(AddExpAST ast, StringBuilder sb) {
         // 变量未定义
-        if (!checkInitExp(ast))
+        if (!checkInitExp(ast)) {
+            System.out.println("[IRBuilder] 语义错误: 表达式中有变量未声明");
             System.exit(-3);
+        }
+
         String reg, reg_l, reg_r, op;
         AddExpAST cur_ast = ast;
 
@@ -612,6 +898,7 @@ public class IRBuilder {
                 Ident ident;
                 ident = searchIdent(ast.l_val);
                 if (ident == null) {
+                    System.out.println("[IRBuilder] 语义错误: 变量 " + ast.l_val + " 未定义");
                     System.exit(-3);
                 }
                 reg_r = ident.reg;
@@ -647,6 +934,7 @@ public class IRBuilder {
         String ident = ast.ident;
         Func func = searchFunc(ident);
         if (func == null) {
+            System.out.println("[IRBuilder] 语义错误: 函数 " + ident + " 未声明");
             System.exit(-3);
         }
         String type = "i32";
