@@ -693,6 +693,7 @@ public class IRBuilder {
      * @return If语句的IR
      * */
     private String visitIf(IfAST ast, String next_label) {
+        ident_table_list.push(new HashMap<>());         // 当前block的符号表入栈
         StringBuilder res = new StringBuilder();
 
         LOrExpAST or = ast.cond;
@@ -732,6 +733,7 @@ public class IRBuilder {
         res.append("  ").append(next_label).append(":\n");      // 添加If语句后块的label
         // 添加IR
 
+        ident_table_list.push(new HashMap<>());         // 当前block的符号表出栈
         return res.toString();
     }
 
