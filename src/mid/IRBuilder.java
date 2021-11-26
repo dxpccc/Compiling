@@ -521,6 +521,9 @@ public class IRBuilder {
 
             globals.put(ident, new Ident(ident, Ident.Type.GLOBAL_VAR_INIT, reg, String.valueOf(value)));
         } else {
+            // 添加IR
+            res.append(reg).append(" = dso_local global i32 0\n");
+
             globals.put(ident,  new Ident(ident, Ident.Type.GLOBAL_VAR_UNINIT, reg, "0"));
         }
 
@@ -711,7 +714,7 @@ public class IRBuilder {
         if (ident == null) {
             System.out.println("[IRBuilder] 语义错误: 变量 " + lhs + " 未定义");
             System.exit(-3);
-        } else if (ident.type == Ident.Type.CONSTVAR) {
+        } else if (ident.type == Ident.Type.CONSTVAR || ident.type == Ident.Type.GLOBAL_CONST) {
             System.out.println("[IRBuilder] 语义错误: 常量 " + lhs + " 不能被赋值");
             System.exit(-3);
         } else {

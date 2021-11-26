@@ -1,8 +1,9 @@
-int a = 6;
-int b = a + 1;
+int a0;
+
+
 int main() {
-    int c = b;
-    int b = 8;
-    putint(b + c);
+    a0  = 0;
+
+    putint(a0);
     return 0;
 }
