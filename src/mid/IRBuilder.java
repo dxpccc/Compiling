@@ -178,7 +178,7 @@ public class IRBuilder {
             return false;
     }
 
-    /* **************** 搜索变量名 **************** */
+    /* **************** 搜索变量 **************** */
     private Ident searchIdent(String ident) {
         Ident _ident = searchLocalIdent(ident);
         return _ident == null? searchExternIdent(ident) : _ident;
@@ -204,7 +204,7 @@ public class IRBuilder {
         }
         return _ident;
     }
-    /* **************** 搜索变量名 **************** */
+    /* **************** 搜索变量 **************** */
 
     /* **************** 搜索函数 **************** */
     private Func searchFunc(String ident) {
@@ -318,8 +318,8 @@ public class IRBuilder {
     private String visitConstDef(ConstDefAST ast) {
         StringBuilder res = new StringBuilder();
         String ident = ast.ident;
-        // 变量已存在
-        if (checkExistedIdent(ident))
+        // 块内局部变量已存在
+        if (checkExistedLocalIdent(ident))
             System.exit(-3);
         String reg_l = getReg();
 
@@ -360,8 +360,8 @@ public class IRBuilder {
     private String visitVarDef(VarDefAST ast) {
         StringBuilder res = new StringBuilder();
         String ident = ast.ident;
-        // 变量已存在
-        if (checkExistedIdent(ident))
+        // 块内局部变量已存在
+        if (checkExistedLocalIdent(ident))
             System.exit(-3);
         String reg_l = getReg();
         String reg_r;
