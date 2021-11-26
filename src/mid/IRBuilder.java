@@ -703,22 +703,24 @@ public class IRBuilder {
         int ands_len = ast.cond.ands.size();
         for (int i = 0; i < ands_len - 1; ++i) {
             LAndExpAST and = ast.cond.ands.get(i);
-            ArrayList<String> code_list = generateCodeList(and, if_label);
+            ArrayList<String> labels = new ArrayList<>();
+            ArrayList<String> code_list = generateCodeList(and, if_label, labels);
             String next_and = getLabel();
 
             // 添加IR
-            res.append(dealCodeList(code_list, next_and, false));
+            res.append(dealCodeList(code_list, labels, next_and, false));
         }
         // 最后一个And单独处理
         LAndExpAST and = ast.cond.ands.get(ands_len - 1);
-        ArrayList<String> code_list = generateCodeList(and, if_label);
+        ArrayList<String> labels = new ArrayList<>();
+        ArrayList<String> code_list = generateCodeList(and, if_label, labels);
         // String next_and = getLabel(); // 最后一个And，不需要再申请label了
 
         // 添加IR
         if (ast.stmt_else != null)
-            res.append(dealCodeList(code_list, else_label, true));
+            res.append(dealCodeList(code_list, labels, else_label, true));
         else
-            res.append(dealCodeList(code_list, next_label, true));
+            res.append(dealCodeList(code_list, labels, next_label, true));
         res.append("  ").append(if_label).append(":\n");
         res.append(visitStmt(ast.stmt_if));
         res.append("\tbr label %").append(next_label).append("\n");     // 执行完跳转到if外面
@@ -734,10 +736,11 @@ public class IRBuilder {
     }
 
     /**
-    * @param if_label If语句条件为真时需要执行代码的label
-    * @return Cond中每个AndExp按照短路求值生成的IR的列表，只包含条件为真时的跳转label
-    * */
-    private ArrayList<String> generateCodeList(LAndExpAST and, String if_label) {
+     * @param if_label If语句条件为真时需要执行代码的label
+     * @param labels 每个块跳转的true label列表
+     * @return Cond中每个AndExp按照短路求值生成的IR的列表，只包含条件为真时的跳转label
+     * */
+    private ArrayList<String> generateCodeList(LAndExpAST and, String if_label, ArrayList<String> labels) {
         int eqs_len = and.eqs.size();
         ArrayList<String> code_list = new ArrayList<>();
 
@@ -747,7 +750,9 @@ public class IRBuilder {
         for (int j = 0; j < eqs_len - 1; ++j) {
             EqExpAST eq = and.eqs.get(j);
             String str = visitEqExp(eq);
-            str += " ,label %" + getLabel();
+            String label = getLabel();
+            str += " ,label %" + label;
+            labels.add(label);          // 因为label长度不一样所以需要保存
             code_list.add(str);
         }
         // 最后一个Eq单独处理
@@ -762,7 +767,7 @@ public class IRBuilder {
      * 添加条件为假时的跳转label
     * @return If语句Cond中AndExp按照短路求值生成的IR
     * */
-    private String dealCodeList(ArrayList<String> code_list, String next, boolean is_last) {
+    private String dealCodeList(ArrayList<String> code_list, ArrayList<String> labels, String next, boolean is_last) {
         StringBuilder res = new StringBuilder();
         // 处理code_list
         // 处理后格式:
@@ -771,7 +776,7 @@ public class IRBuilder {
         // true_label:
         for (int k = 0, len = code_list.size(); k < len - 1; ++k) {
             String s = code_list.get(k);
-            String next_eq = s.substring(s.length() - 2);
+            String next_eq = labels.get(k);
             res.append(s).append(", label %").append(next).append("\n");  // And中有0，直接跳转下一个And
             res.append("  ").append(next_eq).append(":\n");  // 下一个Eq的开头
         }
