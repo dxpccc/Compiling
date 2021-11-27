@@ -393,7 +393,28 @@ public class Parser {
     * 'while' '(' Cond ')' Stmt
     * */
     private WhileAST parseWhile() {
-        return null;
+        Token token = getNextToken();
+        LOrExpAST cond;
+        StmtAST body;
+        if (token == null) {
+            return null;
+        } else if (token.getType() != TokenType.WHILE) {
+            return null;
+        } else if ((token = getNextToken()) == null) {
+            return null;
+        } else if (token.getType() != TokenType.PAREN_L) {
+            return null;
+        } else if ((cond = parseLOrExp()) == null) {
+            return null;
+        } else if ((token = getNextToken()) == null) {
+            return null;
+        } else if (token.getType() != TokenType.PAREN_R) {
+            return null;
+        } else if ((body = parseStmt()) == null) {
+            return null;
+        } else {
+            return new WhileAST(cond, body);
+        }
     }
 
     /*
@@ -404,7 +425,6 @@ public class Parser {
         LOrExpAST or;
         StmtAST stmt_if;
         StmtAST stmt_else;
-        IfAST if_ast = null;
         if (token == null) {
             return null;
         } else if (token.getType() != TokenType.IF) {
