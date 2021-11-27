@@ -301,7 +301,11 @@ public class Parser {
     *      -> Block
     *      -> 'return' Add ';'
     *      -> 'if' '(' Cond ')' Stmt [ 'else' Stmt ]
+    *      -> 'while' '(' Cond ')' Stmt
+    *      -> 'break' ';'
+    *      -> 'continue' ';'
     * LVal -> Ident
+    * Cond -> LOrExp
     * */
     private StmtAST parseStmt() {
         String ident;
@@ -322,7 +326,7 @@ public class Parser {
                 } else if (token.getType() != TokenType.SEMICOLON) {
                     return null;
                 } else {
-                    return new StmtAST(StmtAST.Type.EXP, null, null, addExpAST, null, null);
+                    return new StmtAST(StmtAST.Type.EXP, null, null, addExpAST, null, null, null);
                 }
             } else {
                 token = getNextToken();
@@ -332,14 +336,14 @@ public class Parser {
                 } else if ((token = getNextToken()).getType() != TokenType.SEMICOLON) {
                     return null;
                 } else
-                    return new StmtAST(StmtAST.Type.ASSIGN, new AssignAST(ident, addExpAST), null, null, null, null);
+                    return new StmtAST(StmtAST.Type.ASSIGN, new AssignAST(ident, addExpAST), null, null, null, null, null);
             }
         } else if (token.getType() == TokenType.RETURN) {
             addExpAST = parseAddExp();
             if (addExpAST == null) {
                 return null;
             } else if ((token = getNextToken()) != null && token.getType() == TokenType.SEMICOLON) {
-                return new StmtAST(StmtAST.Type.RETURN, null, new ReturnAST(addExpAST), null, null, null);
+                return new StmtAST(StmtAST.Type.RETURN, null, new ReturnAST(addExpAST), null, null, null, null);
             } else
                 return null;
         } else if (token.getType() == TokenType.IF) {
@@ -348,7 +352,7 @@ public class Parser {
             if (if_ast == null) {
                 return null;
             } else {
-                return new StmtAST(StmtAST.Type.IF, null, null, null, if_ast, null);
+                return new StmtAST(StmtAST.Type.IF, null, null, null, if_ast, null, null);
             }
         } else if (token.getType() == TokenType.BRACE_L) {
             rollBack();
@@ -356,8 +360,20 @@ public class Parser {
             if (block == null) {
                 return null;
             } else {
-                return new StmtAST(StmtAST.Type.BLOCK, null, null, null, null, block);
+                return new StmtAST(StmtAST.Type.BLOCK, null, null, null, null, block, null);
             }
+        } else if (token.getType() == TokenType.WHILE) {
+            rollBack();
+            WhileAST while_ast = parseWhile();
+            if (while_ast == null) {
+                return null;
+            } else {
+                return new StmtAST(StmtAST.Type.WHILE, null, null, null, null, null, while_ast);
+            }
+        } else if (token.getType() == TokenType.BREAK) {
+            return new StmtAST(StmtAST.Type.BREAK, null, null, null, null, null, null);
+        } else if (token.getType() == TokenType.CONTINUE) {
+            return new StmtAST(StmtAST.Type.CONTINUE, null, null, null, null, null, null);
         } else {
             rollBack();
             addExpAST = parseAddExp();
@@ -368,9 +384,16 @@ public class Parser {
             } else if (token.getType() != TokenType.SEMICOLON) {
                 return null;
             } else {
-                return new StmtAST(StmtAST.Type.EXP, null, null, addExpAST, null, null);
+                return new StmtAST(StmtAST.Type.EXP, null, null, addExpAST, null, null, null);
             }
         }
+    }
+
+    /*
+    * 'while' '(' Cond ')' Stmt
+    * */
+    private WhileAST parseWhile() {
+        return null;
     }
 
     /*

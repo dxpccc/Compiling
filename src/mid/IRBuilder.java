@@ -2,11 +2,9 @@ package mid;
 
 import util.AST.*;
 
-import javax.sql.rowset.spi.SyncResolver;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Stack;
 
 class Ident {
