@@ -31,5 +31,8 @@ public enum TokenType {
     LESS_EQ,
     NOT_EQ,
     OR,
-    AND
+    AND,
+    WHILE,
+    BREAK,
+    CONTINUE
 }
