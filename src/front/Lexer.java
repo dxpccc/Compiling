@@ -165,6 +165,18 @@ public class Lexer {
                 token.setType(TokenType.ELSE);
                 token.setValue(value.toString());
                 break;
+            case "while":
+                token.setType(TokenType.WHILE);
+                token.setValue(value.toString());
+                break;
+            case "break":
+                token.setType(TokenType.BREAK);
+                token.setValue(value.toString());
+                break;
+            case "continue":
+                token.setType(TokenType.CONTINUE);
+                token.setValue(value.toString());
+                break;
             default:
                 token.setType(TokenType.IDENT);
                 token.setValue(value.toString());
