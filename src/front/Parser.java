@@ -424,6 +424,11 @@ public class Parser {
             return null;
         } else if (token.getType() != TokenType.PAREN_R) {
             return null;
+        } else if ((token = nextToken()) == null) {
+            return null;
+        } else if (token.getType() == TokenType.SEMICOLON) {
+            token = getNextToken();
+            return new WhileAST(cond, null);
         } else if ((body = parseStmt()) == null) {
             return null;
         } else {

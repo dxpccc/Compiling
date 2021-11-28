@@ -401,7 +401,7 @@ public class IRBuilder {
      * 分配虚拟寄存器
      * */
     private String getReg() {
-        return "%" + (++reg_code);
+        return "%r" + (++reg_code);
     }
 
     /*
@@ -1227,7 +1227,8 @@ public class IRBuilder {
         // 添加IR
         res.append(dealCodeList(code_list, labels, next_label, true));
         res.append("  ").append(body_label).append(":\n");
-        res.append(visitStmt(body));
+        if (body != null)                   // 循环体可能为空
+            res.append(visitStmt(body));
         res.append("\tbr label %").append(cond_label).append("\n");     // 执行完跳转到While外面
         res.append("  ").append(next_label).append(":\n");      // 添加While语句后块的label
         // 添加IR
