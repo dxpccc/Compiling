@@ -691,8 +691,16 @@ public class IRBuilder {
                 res.append(visitBlock(ast.block));
                 break;
             case IF:
-                String next_label = getLabel();
-                res.append(visitIf(ast.if_ast, next_label));
+                res.append(visitIf(ast.if_ast, getLabel()));
+                break;
+            case WHILE:
+                res.append(visitWhile(ast.while_ast, getLabel()));
+                break;
+            case BREAK:
+                res.append(visitBreak());
+                break;
+            case CONTINUE:
+                res.append(visitContinue());
                 break;
             default:
                 break;
@@ -1022,7 +1030,7 @@ public class IRBuilder {
         res.append("  ").append(next_label).append(":\n");      // 添加If语句后块的label
         // 添加IR
 
-        ident_table_list.push(new HashMap<>());         // 当前block的符号表出栈
+        ident_table_list.pop();         // 当前block的符号表出栈
         return res.toString();
     }
 
@@ -1176,5 +1184,75 @@ public class IRBuilder {
             cur_ast = cur_ast.rel;
         }
         return reg;
+    }
+
+
+    private Stack<String> next_labels = new Stack<>();
+    private Stack<String> cond_labels = new Stack<>();
+    /**
+     * @return while语句的IR
+     * */
+    private String visitWhile(WhileAST ast, String next_label) {
+        ident_table_list.push(new HashMap<>());
+
+        StringBuilder res = new StringBuilder();
+
+        LOrExpAST cond = ast.cond;
+        StmtAST body = ast.body;
+        String cond_label, body_label;
+        cond_label = getLabel();
+        body_label = getLabel();
+
+        next_labels.push(next_label);
+        cond_labels.push(cond_label);
+
+        res.append("\tbr label %").append(cond_label).append("\n");
+        res.append("  ").append(cond_label).append(":\n");
+
+        int cond_len = cond.ands.size();
+        for (int i = 0; i < cond_len - 1; ++i) {
+            LAndExpAST and = cond.ands.get(i);
+            ArrayList<String> labels = new ArrayList<>();
+            ArrayList<String> code_list = generateCodeList(and, body_label, labels);
+            String next_and = getLabel();
+
+            // 添加IR
+            res.append(dealCodeList(code_list, labels, next_and, false));
+        }
+        // 最后一个And单独处理
+        LAndExpAST and = ast.cond.ands.get(cond_len - 1);
+        ArrayList<String> labels = new ArrayList<>();
+        ArrayList<String> code_list = generateCodeList(and, body_label, labels);
+
+        // 添加IR
+        res.append(dealCodeList(code_list, labels, next_label, true));
+        res.append("  ").append(body_label).append(":\n");
+        res.append(visitStmt(body));
+        res.append("\tbr label %").append(cond_label).append("\n");     // 执行完跳转到While外面
+        res.append("  ").append(next_label).append(":\n");      // 添加While语句后块的label
+        // 添加IR
+
+        cond_labels.pop();
+        next_labels.pop();
+        ident_table_list.pop();         // 当前block的符号表出栈
+        return res.toString();
+    }
+
+    /**
+     * @return break语句的IR
+     * */
+    private String visitBreak() {
+        String label = getLabel();
+        String next_label = next_labels.peek();
+        return "  " + label + "\n\tbr label %" + next_label + "\n";
+    }
+
+    /**
+     * @return continue语句的IR
+     * */
+    private String visitContinue() {
+        String label = getLabel();
+        String next_label = cond_labels.peek();
+        return "  " + label + "\n\tbr label %" + next_label + "\n";
     }
 }
