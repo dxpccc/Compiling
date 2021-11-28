@@ -371,9 +371,23 @@ public class Parser {
                 return new StmtAST(StmtAST.Type.WHILE, null, null, null, null, null, while_ast);
             }
         } else if (token.getType() == TokenType.BREAK) {
-            return new StmtAST(StmtAST.Type.BREAK, null, null, null, null, null, null);
+            token = getNextToken();
+            if (token == null) {
+                return null;
+            } else if (token.getType() != TokenType.SEMICOLON) {
+                return null;
+            } else {
+                return new StmtAST(StmtAST.Type.BREAK, null, null, null, null, null, null);
+            }
         } else if (token.getType() == TokenType.CONTINUE) {
-            return new StmtAST(StmtAST.Type.CONTINUE, null, null, null, null, null, null);
+            token = getNextToken();
+            if (token == null) {
+                return null;
+            } else if (token.getType() != TokenType.SEMICOLON) {
+                return null;
+            } else {
+                return new StmtAST(StmtAST.Type.CONTINUE, null, null, null, null, null, null);
+            }
         } else {
             rollBack();
             addExpAST = parseAddExp();

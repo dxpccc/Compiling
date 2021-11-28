@@ -1242,17 +1242,15 @@ public class IRBuilder {
      * @return break语句的IR
      * */
     private String visitBreak() {
-        String label = getLabel();
         String next_label = next_labels.peek();
-        return "  " + label + "\n\tbr label %" + next_label + "\n";
+        return "\tbr label %" + next_label + "\n";
     }
 
     /**
      * @return continue语句的IR
      * */
     private String visitContinue() {
-        String label = getLabel();
         String next_label = cond_labels.peek();
-        return "  " + label + "\n\tbr label %" + next_label + "\n";
+        return "\tbr label %" + next_label + "\n";
     }
 }
