@@ -736,7 +736,7 @@ public class IRBuilder {
         for (int x : lengths) {
             size *= x;
         }
-        return memsetZero(start_addr, size);
+        return memsetZero(start_addr, size * 4);
     }
 
     /**
