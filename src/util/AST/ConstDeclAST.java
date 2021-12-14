@@ -3,9 +3,9 @@ package util.AST;
 import java.util.ArrayList;
 
 public class ConstDeclAST {
-    public final ArrayList<ConstDefAST> asts;
+    public final ArrayList<ConstDeclElement> asts;
 
-    public ConstDeclAST(ArrayList<ConstDefAST> asts) {
+    public ConstDeclAST(ArrayList<ConstDeclElement> asts) {
         this.asts = asts;
     }
 }

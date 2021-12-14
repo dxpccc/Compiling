@@ -28,6 +28,8 @@ public class OpMap {
         map.put("!=", TokenType.NOT_EQ);
         map.put("||", TokenType.OR);
         map.put("&&", TokenType.AND);
+        map.put("[", TokenType.SQUARE_L);
+        map.put("]", TokenType.SQUARE_R);
     }
 
     public static OpMap getInstance() {

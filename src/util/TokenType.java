@@ -34,5 +34,7 @@ public enum TokenType {
     AND,
     WHILE,
     BREAK,
-    CONTINUE
+    CONTINUE,
+    SQUARE_L,
+    SQUARE_R
 }

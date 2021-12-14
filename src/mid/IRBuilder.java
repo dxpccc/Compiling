@@ -14,24 +14,57 @@ class Ident {
         VAR_UNINIT,
         GLOBAL_CONST,
         GLOBAL_VAR_INIT,
-        GLOBAL_VAR_UNINIT
+        GLOBAL_VAR_UNINIT,
+        CONSTARR,
+        ARR,
+        GLOBAL_ARR_CONST,
+        GLOBAL_ARR
     }
     public final String ident;
     public Type type;
     public final String reg;
     public final String value;
+    public final Array array;
 
-    public Ident(String ident, Type type, String reg, String value) {
+    public Ident(String ident, Type type, String reg, String value, Array array) {
         this.ident = ident;
         this.type = type;
         this.reg = reg;
-        if (type == Type.GLOBAL_CONST || type == Type.GLOBAL_VAR_INIT) {
-            this.value = value;
-        } else if (type == Type.GLOBAL_VAR_UNINIT) {
-            this.value = "0";
-        } else {
-            this.value = null;
+        switch (type) {
+            case GLOBAL_CONST:
+            case GLOBAL_VAR_INIT:
+                this.value = value;
+                this.array = null;
+                break;
+            case GLOBAL_VAR_UNINIT:
+                this.value = "0";
+                this.array = null;
+                break;
+            case CONSTARR:
+            case ARR:
+            case GLOBAL_ARR_CONST:
+            case GLOBAL_ARR:
+                this.value = null;
+                this.array = array;
+                break;
+            case CONSTVAR:
+            case VAR_INIT:
+            case VAR_UNINIT:
+            default:
+                this.value = null;
+                this.array = null;
+                break;
         }
+    }
+}
+
+class Array {
+    public final int dim;
+    public final int[] lengths;
+
+    public Array(int dim, int[] lengths) {
+        this.dim = dim;
+        this.lengths = lengths;
     }
 }
 
@@ -65,10 +98,12 @@ public class IRBuilder {
         ir.append("declare i32 @getch()\n");
         ir.append("declare void @putint(i32)\n");
         ir.append("declare void @putch(i32)\n");
+        ir.append("declare void @memset(i32*, i32, i32)");
         function_table.put("getint", new Func(Func.Type.INT, "getint"));
         function_table.put("getch", new Func(Func.Type.INT, "getch"));
         function_table.put("putint", new Func(Func.Type.VOID, "putint"));
         function_table.put("putch", new Func(Func.Type.VOID, "putch"));
+        function_table.put("memset", new Func(Func.Type.VOID, "memset"));
 
         ident_table_list.push(globals);
     }
@@ -77,39 +112,53 @@ public class IRBuilder {
         this(null);
     }
 
-    /* *********** 常量初始化检查 ************* */
-    private boolean checkConstInitVal(AddExpAST ast) {
+    /* *********** 表达式检查 *********** */
+    /*
+    * isConst 表示是否是常量表达式检查
+    * 常量表达式的项必须为常数或者已定义常量，不允许出现数组和函数调用
+    * 表达式中函数调用返回值不可为void，变量必须已定义且已初始化，数组默认初始化
+    * */
+    private boolean checkExp(AddExpAST ast, boolean isConst) {
         if (ast.RHS == null) {
-            return checkConstMulExp(ast.LHS);
+            return checkMulExp(ast.LHS, isConst);
         } else {
-            return checkConstMulExp(ast.LHS) && checkConstInitVal(ast.RHS);
+            return checkMulExp(ast.LHS, isConst) && checkExp(ast.RHS, isConst);
         }
     }
 
-    private boolean checkConstMulExp(MulExpAST ast) {
+    private boolean checkMulExp(MulExpAST ast, boolean isConst) {
         if (ast.RHS == null) {
-            return checkConstUnaryExp(ast.LHS);
+            return checkUnaryExp(ast.LHS, isConst);
         } else {
-            return checkConstUnaryExp(ast.LHS) && checkConstMulExp(ast.RHS);
+            return checkUnaryExp(ast.LHS, isConst) && checkMulExp(ast.RHS, isConst);
         }
     }
 
-    private boolean checkConstUnaryExp(UnaryExpAST ast) {
-        return checkConstPrimaryExp(ast.primary);
+    private boolean checkUnaryExp(UnaryExpAST ast, boolean isConst) {
+        return checkPrimaryExp(ast.primary, isConst);
     }
 
-    private boolean checkConstPrimaryExp(PrimaryExpAST ast) {
+    private boolean checkPrimaryExp(PrimaryExpAST ast, boolean isConst) {
         boolean res = true;
         switch (ast.type) {
             case EXP:
-                res = checkConstInitVal(ast.exp);
+                res = checkExp(ast.exp, isConst);
                 break;
             case LVAL:
                 Ident ident = searchIdent(ast.l_val);
-                res = (ident != null && ident.type == Ident.Type.CONSTVAR);
+                if (isConst)
+                    res = (ident != null && (ident.type == Ident.Type.CONSTVAR || ident.type == Ident.Type.GLOBAL_CONST));
+                else
+                    res = !(ident == null || ident.type == Ident.Type.VAR_UNINIT);
                 break;
             case FUNC_CALL:
-                res = false;
+                if (isConst)
+                    res = false;
+                else {
+                    // 返回值为void的函数不允许出现在exp中，Stmt中特判
+                    Func func = searchFunc(ast.func_call.ident);
+                    res = (func != null && func.type == Func.Type.INT);
+                }
                 break;
             case NUMBER:
             default:
@@ -117,52 +166,7 @@ public class IRBuilder {
         }
         return res;
     }
-    /* ************ 常量初始化检查 ************* */
-
-    /* *********** 变量初始化检查 *********** */
-    private boolean checkInitExp(AddExpAST ast) {
-        if (ast.RHS == null) {
-            return checkInitMulExp(ast.LHS);
-        } else {
-            return checkInitMulExp(ast.LHS) && checkInitExp(ast.RHS);
-        }
-    }
-
-    private boolean checkInitMulExp(MulExpAST ast) {
-        if (ast.RHS == null) {
-            return checkInitUnaryExp(ast.LHS);
-        } else {
-            return checkInitUnaryExp(ast.LHS) && checkInitMulExp(ast.RHS);
-        }
-    }
-
-    private boolean checkInitUnaryExp(UnaryExpAST ast) {
-        return checkInitPrimaryExp(ast.primary);
-    }
-
-    private boolean checkInitPrimaryExp(PrimaryExpAST ast) {
-        boolean res = true;
-        switch (ast.type) {
-            case EXP:
-                res = checkInitExp(ast.exp);
-                break;
-            case LVAL:
-                Ident ident = searchIdent(ast.l_val);
-                res = (ident != null && (ident.type == Ident.Type.VAR_INIT || ident.type == Ident.Type.CONSTVAR
-                        || ident.type == Ident.Type.GLOBAL_CONST || ident.type == Ident.Type.GLOBAL_VAR_INIT || ident.type == Ident.Type.GLOBAL_VAR_UNINIT));
-                break;
-            case FUNC_CALL:
-                // 返回值为void的函数不允许出现在exp中，Stmt中特判
-                Func func = searchFunc(ast.func_call.ident);
-                res = (func != null && func.type == Func.Type.INT);
-                break;
-            case NUMBER:
-            default:
-                break;
-        }
-        return res;
-    }
-    /* *********** 变量初始化检查 *********** */
+    /* *********** 表达式检查 *********** */
 
     /* ************ 变量命名检查 ************ */
     private boolean checkExistedIdent(String ident) {
@@ -177,93 +181,6 @@ public class IRBuilder {
         return searchExternIdent(ident) != null;
     }
     /* ************ 变量命名检查 ************ */
-
-    /* ************ 全局常量初始化检查 ************* */
-    private boolean checkGlobalConstInitVal(AddExpAST ast) {
-        if (ast.RHS == null) {
-            return checkGlobalConstMulExp(ast.LHS);
-        } else {
-            return checkGlobalConstMulExp(ast.LHS) && checkGlobalConstInitVal(ast.RHS);
-        }
-    }
-
-    private boolean checkGlobalConstMulExp(MulExpAST ast) {
-        if (ast.RHS == null) {
-            return checkGlobalConstUnaryExp(ast.LHS);
-        } else {
-            return checkGlobalConstUnaryExp(ast.LHS) && checkGlobalConstMulExp(ast.RHS);
-        }
-    }
-
-    private boolean checkGlobalConstUnaryExp(UnaryExpAST ast) {
-        return checkGlobalConstPrimaryExp(ast.primary);
-    }
-
-    private boolean checkGlobalConstPrimaryExp(PrimaryExpAST ast) {
-        boolean res = false;
-        switch (ast.type) {
-            case EXP:
-                res = checkGlobalConstInitVal(ast.exp);
-                break;
-            case NUMBER:
-                res = true;
-            case LVAL:
-                Ident ident;
-                if ((ident = searchLocalIdent(ast.l_val)) != null && ident.type == Ident.Type.GLOBAL_CONST) {
-                    res = true;
-                }
-                break;
-            case FUNC_CALL:
-            default:
-                break;
-        }
-        return res;
-    }
-    /* ************ 全局常量初始化检查 ************* */
-
-    /* ************ 全局变量初始化检查 *********** */
-    private boolean checkGlobalVarInit(AddExpAST ast) {
-        if (ast.RHS == null) {
-            return checkGlobalVarMulExp(ast.LHS);
-        } else {
-            return checkGlobalVarMulExp(ast.LHS) && checkGlobalVarInit(ast.RHS);
-        }
-    }
-
-    private boolean checkGlobalVarMulExp(MulExpAST ast) {
-        if (ast.RHS == null) {
-            return checkGlobalVarUnaryExp(ast.LHS);
-        } else {
-            return checkGlobalVarUnaryExp(ast.LHS) && checkGlobalVarMulExp(ast.RHS);
-        }
-    }
-
-    private boolean checkGlobalVarUnaryExp(UnaryExpAST ast) {
-        return checkGlobalVarPrimaryExp(ast.primary);
-    }
-
-    private boolean checkGlobalVarPrimaryExp(PrimaryExpAST ast) {
-        boolean res = false;
-        switch (ast.type) {
-            case EXP:
-                res = checkGlobalVarInit(ast.exp);
-                break;
-            case LVAL:
-                Ident ident;
-                if ((ident = searchLocalIdent(ast.l_val)) != null && ident.type == Ident.Type.GLOBAL_CONST) {
-                    res = true;
-                }
-                break;
-            case NUMBER:
-                res = true;
-                break;
-            case FUNC_CALL:
-            default:
-                break;
-        }
-        return res;
-    }
-    /* ************ 全局变量初始化检查 *********** */
 
     /* ************** 计算常量表达式的值 *************** */
     private int calculateAddExp(AddExpAST ast) {
@@ -451,16 +368,22 @@ public class IRBuilder {
 
     private String visitGlobalConstDecl(ConstDeclAST ast) {
         StringBuilder res = new StringBuilder();
-        for (ConstDefAST def : ast.asts) {
-            res.append(visitGlobalConstDef(def));
+        for (ConstDeclElement def : ast.asts) {
+            if (def.isArray)
+                res.append(visitGlobalConstArray(def.array));
+            else
+                res.append(visitGlobalConstDef(def.var));
         }
         return res.toString();
     }
 
     private String visitGlobalVarDecl(VarDeclAST ast) {
         StringBuilder res = new StringBuilder();
-        for (VarDefAST def : ast.asts) {
-            res.append(visitGlobalVarDef(def));
+        for (VarDeclElement def : ast.asts) {
+            if (def.isArray)
+                res.append(visitGlobalVarArray(def.array));
+            else
+                res.append(visitGlobalVarDef(def.var));
         }
         return res.toString();
     }
@@ -476,7 +399,7 @@ public class IRBuilder {
         }
 
         // 非常值赋值
-        if (!checkGlobalConstInitVal(ast.init_val)) {
+        if (!checkExp(ast.init_val, true)) {
             System.out.println("[IRBuilder] 语义错误: 全局常量 " + ident + " 不能用变量赋值");
             System.exit(-3);
         }
@@ -489,7 +412,81 @@ public class IRBuilder {
         // 添加IR
         res.append(reg).append(" = dso_local global i32 ").append(value).append("\n");
 
-        globals.put(ident, new Ident(ident, Ident.Type.GLOBAL_CONST, reg, String.valueOf(value)));
+        globals.put(ident, new Ident(ident, Ident.Type.GLOBAL_CONST, reg, String.valueOf(value), null));
+        return res.toString();
+    }
+
+    private String visitGlobalConstArray(ConstArrayAST ast) {
+        StringBuilder res = new StringBuilder();
+        String ident = ast.ident;
+
+        // 全局变量已存在
+        if (checkExistedLocalIdent(ident)) {
+            System.out.println("[IRBuilder] 语义错误: 全局常量数组 " + ident + " 已定义");
+            System.exit(-3);
+        }
+
+        // 声明数组
+        String reg = "@" + ident;
+        int[] lengths = calculateLengths(ast.lengths);
+        if (lengths == null) {
+            System.out.println("[IRBuilder] 语义错误: 数组 " + ident + " 长度不能用变量赋值");
+            System.exit(-3);
+        }
+
+        // @arr = dso_local global [2 x [2 x i32]] [[2 x i32] [i32 1, i32 2], [2 x i32] [i32 3, i32 0]]
+        String values = visitGlobalInitVal(ast.values, ast.dim, lengths);
+        res.append(reg).append(" = dso_local global ").append(values).append("\n");
+
+        globals.put(ident, new Ident(ident, Ident.Type.GLOBAL_ARR_CONST, reg, null, new Array(ast.dim, lengths)));
+        return res.toString();
+    }
+
+    private String visitGlobalInitVal(InitValAST ast, int dim, int[] lengths) {
+        StringBuilder res = new StringBuilder();
+        if (ast.type == InitValAST.Type.EXP) {
+            if (dim != 0) {
+                System.out.println("[IRBuilder] 语义错误: 数组初始化错误，维数不对应");
+                System.exit(-3);
+            }
+            if (!checkExp(ast.exp, true)) {
+                System.out.println("[IRBuilder] 语义错误: 全局数组初始化表达式错误");
+                System.exit(-3);
+            }
+            // @arr = dso_local global [2 x [2 x i32]] [[2 x i32] [i32 1, i32 2], [2 x i32] [i32 3, i32 0]]
+            int value = calculateAddExp(ast.exp);
+            res.append("i32 ").append(value);
+        } else if (ast.type == InitValAST.Type.INITVAL) {
+            int len = ast.init_vals.size();
+            res.append(generateArrayType(lengths)).append(" [");
+            InitValAST child = ast.init_vals.get(0);
+            // 下一维数组的长度
+            int[] new_lengths = new int[dim - 1];
+            if (dim - 1 >= 0)
+                System.arraycopy(lengths, 1, new_lengths, 0, dim - 1);
+            String str = visitGlobalInitVal(child, dim - 1, new_lengths);
+            res.append(str);
+            for (int i = 1; i < len; ++i) {
+                child = ast.init_vals.get(i);
+                // 下一维数组的长度
+                new_lengths = new int[dim - 1];
+                if (dim - 1 >= 0)
+                    System.arraycopy(lengths, 1, new_lengths, 0, dim - 1);
+                str = visitGlobalInitVal(child, dim - 1, new_lengths);
+                res.append(", ").append(str);
+            }
+            // 未初始化部分默认初始化为0
+            for (int i = len; i < lengths[0]; ++i) {
+                child = new InitValAST(InitValAST.Type.EMPTY_INIT, null, null);
+                str = visitGlobalInitVal(child, dim - 1, null);
+            }
+            res.append("]");
+        } else {
+            if (dim == 0)
+                res.append("i32 0");
+            else
+                res.append(generateArrayType(lengths)).append(" zeroinitializer");
+        }
         return res.toString();
     }
 
@@ -507,7 +504,7 @@ public class IRBuilder {
 
         if (ast.type == VarDefAST.Type.INIT) {
             // 非常值赋值
-            if (!checkGlobalConstInitVal(ast.init_var)) {
+            if (!checkExp(ast.init_var, true)) {
                 System.out.println("[IRBuilder] 语义错误: 全局变量 " + ident + " 不能用变量赋值");
                 System.exit(-3);
             }
@@ -517,12 +514,46 @@ public class IRBuilder {
             // 添加IR
             res.append(reg).append(" = dso_local global i32 ").append(value).append("\n");
 
-            globals.put(ident, new Ident(ident, Ident.Type.GLOBAL_VAR_INIT, reg, String.valueOf(value)));
+            globals.put(ident, new Ident(ident, Ident.Type.GLOBAL_VAR_INIT, reg, String.valueOf(value), null));
         } else {
             // 添加IR
             res.append(reg).append(" = dso_local global i32 0\n");
 
-            globals.put(ident,  new Ident(ident, Ident.Type.GLOBAL_VAR_UNINIT, reg, "0"));
+            globals.put(ident,  new Ident(ident, Ident.Type.GLOBAL_VAR_UNINIT, reg, "0", null));
+        }
+
+        return res.toString();
+    }
+
+    private String visitGlobalVarArray(VarArrayAST ast) {
+        StringBuilder res = new StringBuilder();
+        String ident = ast.ident;
+
+        // 全局变量已存在
+        if (checkExistedLocalIdent(ident)) {
+            System.out.println("[IRBuilder] 语义错误: 全局变量 " + ident + " 已定义");
+            System.exit(-3);
+        }
+
+        // 声明数组
+        String reg = "@" + ident;
+        int[] lengths = calculateLengths(ast.lengths);
+        if (lengths == null) {
+            System.out.println("[IRBuilder] 语义错误: 数组 " + ident + " 长度不能用变量赋值");
+            System.exit(-3);
+        }
+
+        if (ast.type == VarArrayAST.Type.INIT) {
+            // @arr = dso_local global [2 x [2 x i32]] [[2 x i32] [i32 1, i32 2], [2 x i32] [i32 3, i32 0]]
+            String values = visitGlobalInitVal(ast.values, ast.dim, lengths);
+            res.append(reg).append(" = dso_local global ").append(values).append("\n");
+
+            globals.put(ident, new Ident(ident, Ident.Type.GLOBAL_ARR, reg, null, new Array(ast.dim, lengths)));
+        } else {
+            // 添加IR
+            res.append(reg).append(" = dso_local global ").append(generateArrayType(lengths)).append(" zeroinitializer\n");
+
+            globals.put(ident,  new Ident(ident, Ident.Type.GLOBAL_ARR, reg, null, new Array(ast.dim, lengths)));
         }
 
         return res.toString();
@@ -579,8 +610,11 @@ public class IRBuilder {
      * */
     private String visitConstDecl(ConstDeclAST ast) {
         StringBuilder res = new StringBuilder();
-        for (ConstDefAST def : ast.asts) {
-            res.append(visitConstDef(def));
+        for (ConstDeclElement def : ast.asts) {
+            if (def.isArray)
+                res.append(visitConstArray(def.array));
+            else
+                res.append(visitConstDef(def.var));
         }
         return res.toString();
     }
@@ -598,7 +632,7 @@ public class IRBuilder {
         }
 
         // 用非常量赋值
-        if (!checkConstInitVal(ast.init_val)) {
+        if (!checkExp(ast.init_val, true)) {
             System.out.println("[IRBuilder] 语义错误: " + ident + " 不能用变量赋值");
             System.exit(-3);
         }
@@ -617,17 +651,172 @@ public class IRBuilder {
         // 添加IR
         res.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
 
-        ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.CONSTVAR, reg_l, null));
+        ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.CONSTVAR, reg_l, null, null));
         return res.toString();
+    }
+
+    private String visitConstArray(ConstArrayAST ast) {
+        StringBuilder res = new StringBuilder();
+        String ident = ast.ident;
+        // 块内局部变量已存在
+        if (checkExistedLocalIdent(ident)) {
+            System.out.println("[IRBuilder] 语义错误: 常量数组" + ident + " 已定义");
+            System.exit(-3);
+        }
+
+        // 声明数组
+        String reg = getReg();
+        int[] lengths = calculateLengths(ast.lengths);
+        if (lengths == null) {
+            System.out.println("[IRBuilder] 语义错误: 数组 " + ident + " 长度不能用变量赋值");
+            System.exit(-3);
+        }
+        // 申请空间
+        res.append("\t").append(reg).append(" = ").append("alloca ").append(generateArrayType(lengths));
+        // 默认初始化
+        res.append(initArray(reg, lengths));
+        res.append(visitInitVal(ast.values, ast.dim, reg, lengths, true));
+
+        // 加入符号表
+        ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.CONSTARR, reg, null, new Array(ast.dim, lengths)));
+        return res.toString();
+    }
+
+    /**
+     * @param array_lengths 数组长度表达式列表
+     * @return  数组长度列表
+     */
+    private int[] calculateLengths(ArrayList<AddExpAST> array_lengths) {
+        int[] res = new int[array_lengths.size()];
+        int i = 0;
+        for (AddExpAST add : array_lengths) {
+            if (!checkExp(add, true)) {
+                res = null;
+                break;
+            } else
+                res[i++] = calculateAddExp(add);
+        }
+        return res;
+    }
+
+    /**
+     * @param lengths 每一维的长度
+     * @return 形如 [3 × [4 × [5 × i32]]] 的字符串
+     */
+    private String generateArrayType(int[] lengths) {
+        StringBuilder res_l = new StringBuilder();
+        StringBuilder res_r = new StringBuilder();
+        for (int length : lengths) {
+            res_l.append("[").append(length).append(" x ");
+            res_r.append("]");
+        }
+        return res_l.toString() + "i32" + res_r.toString();
+    }
+
+    /**
+     * @param start_addr 数组起始地址
+     * @param lengths 数组长度
+     * @return IR
+     */
+    private String initArray(String start_addr, int[] lengths) {
+        int size = 1;
+        for (int x : lengths) {
+            size *= x;
+        }
+        return memsetZero(start_addr, size);
+    }
+
+    /**
+     * @param start_addr 数组起始地址
+     * @param size 数组大小
+     * @return IR
+     */
+    private String memsetZero(String start_addr, int size) {
+        // call void @memset(i32* start_addr, i32 0, i32 size)
+        return "\tcall void @memset(i32* " + start_addr + ", i32 0, i32 " + size + ")\n";
+    }
+
+    /**
+     * @param ast 初始化值
+     * @param dim 数组维数
+     * @param addr 数组首地址
+     * @param lengths 数组每一维长度
+     * @return IR
+     */
+    private String visitInitVal(InitValAST ast, int dim, String addr, int[] lengths, boolean isConst) {
+        StringBuilder res = new StringBuilder();
+        if (ast.type == InitValAST.Type.EXP) {
+            if (dim != 0) {
+                System.out.println("[IRBuilder] 语义错误: 数组初始化错误，维数不对应");
+                System.exit(-3);
+            }
+            if (isConst) {
+                if (!checkExp(ast.exp, true)) {
+                    System.out.println("[IRBuilder] 语义错误: 常量数组初始化表达式错误");
+                    System.exit(-3);
+                }
+                //store i32 1, i32* %4
+                int value = calculateAddExp(ast.exp);
+                res.append("\t").append("store i32 ").append(value).append(", i32* ").append(addr).append("\n");
+            } else {
+                if (!checkExp(ast.exp, false)) {
+                    System.out.println("[IRBuilder] 语义错误: 数组初始化表达式错误");
+                    System.exit(-3);
+                }
+                String value = visitAddExp(ast.exp, res);
+                res.append("\t").append("store i32 ").append(value).append(", i32* ").append(addr).append("\n");
+            }
+        } else if (ast.type == InitValAST.Type.INITVAL) {
+            int len = ast.init_vals.size();
+            for (int i = 0; i < len; ++i) {
+                InitValAST child = ast.init_vals.get(i);
+                // 下一维数组的长度
+                int[] new_lengths = new int[dim - 1];
+                if (dim - 1 >= 0)
+                    System.arraycopy(lengths, 1, new_lengths, 0, dim - 1);
+                // 下一维数组的索引
+                String[] location = new String[1];
+                location[0] = "" + i;
+                // 下一维数组的地址
+                String new_addr = getArrayElement(addr, lengths, location, res);
+                // 递归
+                String str = visitInitVal(child, dim - 1, new_addr, new_lengths, isConst);
+                res.append(str);
+            }
+        }
+        return res.toString();
+    }
+
+    /**
+     * @param start_addr 数组首地址
+     * @param array_lengths 数组每一维长度
+     * @param location 所求元素索引，可能为寄存器
+     * @param sb 返回的IR
+     * @return 元素的寄存器
+     */
+    private String getArrayElement(String start_addr, int[] array_lengths, String[] location, StringBuilder sb) {
+        // %1 = getelementptr [5 x [4 x i32]], [5 x [4 x i32]]* @a, i32 0, i32 2, i32 3
+        String reg = getReg();
+        String array_type = generateArrayType(array_lengths);
+        sb.append("\t").append(reg).append(" = getelementptr ").append(array_type)
+                .append(", ").append(array_type).append("* ").append(start_addr).append(", i32 0");
+        for (String i : location) {
+            sb.append(", i32 ").append(i);
+        }
+        sb.append("\n");
+        return reg;
     }
 
     /**
      * @return VarDecl的IR
      * */
-    private String visitVarDecl(VarDeclAST ast) {
+      private String visitVarDecl(VarDeclAST ast) {
         StringBuilder res = new StringBuilder();
-        for (VarDefAST def : ast.asts) {
-            res.append(visitVarDef(def));
+        for (VarDeclElement def : ast.asts) {
+            if (def.isArray)
+                res.append(visitVarArray(def.array));
+            else
+                res.append(visitVarDef(def.var));
         }
         return res.toString();
     }
@@ -661,10 +850,39 @@ public class IRBuilder {
             // 添加IR
             res.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
 
-            ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.VAR_INIT, reg_l, null));
+            ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.VAR_INIT, reg_l, null, null));
         } else {
-            ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.VAR_UNINIT, reg_l, null));
+            ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.VAR_UNINIT, reg_l, null, null));
         }
+        return res.toString();
+    }
+
+    private String visitVarArray(VarArrayAST ast) {
+        StringBuilder res = new StringBuilder();
+        String ident = ast.ident;
+
+        // 块内局部变量已存在
+        if (checkExistedLocalIdent(ident)) {
+            System.out.println("[IRBuilder] 语义错误: " + ident + " 已定义");
+            System.exit(-3);
+        }
+
+        // 声明数组
+        String reg = getReg();
+        int[] lengths = calculateLengths(ast.lengths);
+        if (lengths == null) {
+            System.out.println("[IRBuilder] 语义错误: 数组 " + ident + " 长度不能用变量赋值");
+            System.exit(-3);
+        }
+        // 申请空间
+        res.append("\t").append(reg).append(" = ").append("alloca ").append(generateArrayType(lengths));
+        // 默认初始化
+        res.append(initArray(reg, lengths));
+        if (ast.type == VarArrayAST.Type.INIT)
+            res.append(visitInitVal(ast.values, ast.dim, reg, lengths, false));
+
+        // 加入符号表
+        ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.CONSTARR, reg, null, new Array(ast.dim, lengths)));
         return res.toString();
     }
 
@@ -769,7 +987,7 @@ public class IRBuilder {
      * */
     private String visitAddExp(AddExpAST ast, StringBuilder sb) {
         // 变量未定义
-        if (!checkInitExp(ast)) {
+        if (!checkExp(ast, false)) {
             System.out.println("[IRBuilder] 语义错误: 表达式中有变量未声明");
             System.exit(-3);
         }
@@ -893,6 +1111,7 @@ public class IRBuilder {
      * */
     private String visitPrimaryExp(PrimaryExpAST ast, StringBuilder sb) {
         String reg, reg_r;
+        Ident ident;
         switch (ast.type) {
             case EXP:
 
@@ -904,7 +1123,6 @@ public class IRBuilder {
 
                 break;
             case LVAL:
-                Ident ident;
                 ident = searchIdent(ast.l_val);
                 if (ident == null) {
                     System.out.println("[IRBuilder] 语义错误: 变量 " + ast.l_val + " 未定义");
@@ -927,11 +1145,37 @@ public class IRBuilder {
             case NUMBER:
                 reg = ast.number;
                 break;
+            case ARR_ELEM:
+                ident = searchIdent(ast.array_elem.ident);
+                if (ident == null) {
+                    System.out.println("[IRBuilder] 语义错误: 数组元素 " + ast.array_elem.ident + " 未定义");
+                    System.exit(-3);
+                }
+                String[] locations = addExpArray2StringArray(ast.array_elem.locations, sb);
+                reg_r = getArrayElement(ident.reg, ident.array.lengths, locations, sb);
+                reg = getReg();
+                // 添加IR
+                sb.append("\t").append(reg).append(" = load i32, i32* ").append(reg_r).append("\n");
+                break;
             default:
                 reg = "";
                 break;
         }
         return reg;
+    }
+
+    private String[] addExpArray2StringArray(ArrayList<AddExpAST> asts, StringBuilder sb) {
+        int len = asts.size();
+        String[] res = new String[len];
+        for (int i = 0; i < len; ++i) {
+            AddExpAST add = asts.get(i);
+            if (!checkExp(add, false)) {
+                System.out.println("[IRBuilder] 语义错误: 数组元素索引错误");
+                System.exit(-3);
+            }
+            res[i] = visitAddExp(add, sb);
+        }
+        return res;
     }
 
     /**
