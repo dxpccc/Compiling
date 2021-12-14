@@ -676,9 +676,18 @@ public class IRBuilder {
             System.exit(-3);
         }
         // 申请空间
-        res.append("\t").append(reg).append(" = ").append("alloca ").append(generateArrayType(lengths)).append("\n");
+        String arrray_type = generateArrayType(lengths);
+        res.append("\t").append(reg).append(" = ").append("alloca ").append(arrray_type).append("\n");
         // 默认初始化
-        res.append(initArray(reg, lengths));
+        String reg_init = getReg();
+        res.append("\t").append(reg_init).append(" = getelementptr ").append(arrray_type).append(", ")
+                .append(arrray_type).append("* ").append(reg);
+        for (int i = 0; i <= ast.dim; ++i) {
+            res.append(", i32 0");
+        }
+        res.append("\n");
+        res.append(initArray(reg_init, lengths));
+        // 初始化
         res.append(visitInitVal(ast.values, ast.dim, reg, lengths, true));
 
         // 加入符号表
@@ -879,9 +888,17 @@ public class IRBuilder {
             System.exit(-3);
         }
         // 申请空间
-        res.append("\t").append(reg).append(" = ").append("alloca ").append(generateArrayType(lengths)).append("\n");
+        String arrray_type = generateArrayType(lengths);
+        res.append("\t").append(reg).append(" = ").append("alloca ").append(arrray_type).append("\n");
         // 默认初始化
-        res.append(initArray(reg, lengths));
+        String reg_init = getReg();
+        res.append("\t").append(reg_init).append(" = getelementptr ").append(arrray_type).append(", ")
+                .append(arrray_type).append("* ").append(reg);
+        for (int i = 0; i <= ast.dim; ++i) {
+            res.append(", i32 0");
+        }
+        res.append("\n");
+        res.append(initArray(reg_init, lengths));
         if (ast.type == VarArrayAST.Type.INIT)
             res.append(visitInitVal(ast.values, ast.dim, reg, lengths, false));
 
