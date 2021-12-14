@@ -903,7 +903,7 @@ public class IRBuilder {
             res.append(visitInitVal(ast.values, ast.dim, reg, lengths, false));
 
         // 加入符号表
-        ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.CONSTARR, reg, null, new Array(ast.dim, lengths)));
+        ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.ARR, reg, null, new Array(ast.dim, lengths)));
         return res.toString();
     }
 
