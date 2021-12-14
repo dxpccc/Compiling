@@ -98,7 +98,7 @@ public class IRBuilder {
         ir.append("declare i32 @getch()\n");
         ir.append("declare void @putint(i32)\n");
         ir.append("declare void @putch(i32)\n");
-        ir.append("declare void @memset(i32*, i32, i32)");
+        ir.append("declare void @memset(i32*, i32, i32)\n");
         function_table.put("getint", new Func(Func.Type.INT, "getint"));
         function_table.put("getch", new Func(Func.Type.INT, "getch"));
         function_table.put("putint", new Func(Func.Type.VOID, "putint"));
@@ -478,7 +478,11 @@ public class IRBuilder {
             // 未初始化部分默认初始化为0
             for (int i = len; i < lengths[0]; ++i) {
                 child = new InitValAST(InitValAST.Type.EMPTY_INIT, null, null);
-                str = visitGlobalInitVal(child, dim - 1, null);
+                new_lengths = new int[dim - 1];
+                if (dim - 1 >= 0)
+                    System.arraycopy(lengths, 1, new_lengths, 0, dim - 1);
+                str = visitGlobalInitVal(child, dim - 1, new_lengths);
+                res.append(", ").append(str);
             }
             res.append("]");
         } else {
@@ -672,7 +676,7 @@ public class IRBuilder {
             System.exit(-3);
         }
         // 申请空间
-        res.append("\t").append(reg).append(" = ").append("alloca ").append(generateArrayType(lengths));
+        res.append("\t").append(reg).append(" = ").append("alloca ").append(generateArrayType(lengths)).append("\n");
         // 默认初始化
         res.append(initArray(reg, lengths));
         res.append(visitInitVal(ast.values, ast.dim, reg, lengths, true));
@@ -875,7 +879,7 @@ public class IRBuilder {
             System.exit(-3);
         }
         // 申请空间
-        res.append("\t").append(reg).append(" = ").append("alloca ").append(generateArrayType(lengths));
+        res.append("\t").append(reg).append(" = ").append("alloca ").append(generateArrayType(lengths)).append("\n");
         // 默认初始化
         res.append(initArray(reg, lengths));
         if (ast.type == VarArrayAST.Type.INIT)
@@ -931,33 +935,41 @@ public class IRBuilder {
      * */
     private String visitAssign(AssignAST ast) {
         StringBuilder res = new StringBuilder();
-        String lhs = ast.ident;
+        String lhs;
         AddExpAST add = ast.exp;
         String reg_l;
-        Ident ident = searchIdent(lhs);
+        Ident ident;
+        lhs = ast.type == AssignAST.Type.VAR ? ast.ident : ast.array_elem.ident;
+        ident = searchIdent(lhs);
         if (ident == null) {
             System.out.println("[IRBuilder] 语义错误: 变量 " + lhs + " 未定义");
             System.exit(-3);
-        } else if (ident.type == Ident.Type.CONSTVAR || ident.type == Ident.Type.GLOBAL_CONST) {
+        } else if (ident.type == Ident.Type.CONSTVAR
+                    || ident.type == Ident.Type.GLOBAL_CONST
+                    || ident.type == Ident.Type.CONSTARR
+                    || ident.type == Ident.Type.GLOBAL_ARR_CONST) {
             System.out.println("[IRBuilder] 语义错误: 常量 " + lhs + " 不能被赋值");
             System.exit(-3);
+        } else if (ast.type == AssignAST.Type.ARR_ELEM && ast.array_elem.dim != ident.array.dim) {
+            System.out.println("[IRBuilder] 语义错误: 无法为数组赋值");
+            System.exit(-3);
         } else {
-            reg_l = ident.reg;
-            if (reg_l == null) {
-                System.out.println("[IRBuilder] 语义错误: 变量 " + lhs + " 未定义");
-                System.exit(-3);
-            } else {
-                // 添加IR
-                StringBuilder add_code = new StringBuilder();
-                String reg_r = visitAddExp(add, add_code);
-                res.append(add_code);
-                // 添加IR
-
-                // 添加IR
-                res.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
-
-                ident.type = Ident.Type.VAR_INIT;
+            if (ast.type == AssignAST.Type.VAR)
+                reg_l = ident.reg;
+            else {
+                String[] locations = addExpArray2StringArray(ast.array_elem.locations, res);
+                reg_l = getArrayElement(ident.reg, ident.array.lengths, locations, res);
             }
+            // 添加IR
+            StringBuilder add_code = new StringBuilder();
+            String reg_r = visitAddExp(add, add_code);
+            res.append(add_code);
+            // 添加IR
+
+            // 添加IR
+            res.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
+            if (ast.type == AssignAST.Type.VAR)
+                ident.type = Ident.Type.VAR_INIT;
         }
         return res.toString();
     }
@@ -1149,6 +1161,10 @@ public class IRBuilder {
                 ident = searchIdent(ast.array_elem.ident);
                 if (ident == null) {
                     System.out.println("[IRBuilder] 语义错误: 数组元素 " + ast.array_elem.ident + " 未定义");
+                    System.exit(-3);
+                }
+                if (ident.array.dim != ast.array_elem.dim) {
+                    System.out.println("[IRBuilder] 语义错误: 数组元素 " + ast.array_elem.ident + " 维数错误");
                     System.exit(-3);
                 }
                 String[] locations = addExpArray2StringArray(ast.array_elem.locations, sb);

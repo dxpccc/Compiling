@@ -319,13 +319,13 @@ public class Parser {
         Token token;
         InitValAST init_val;
         AddExpAST add;
-        if ((token = getNextToken()) == null) {
+        if ((token = nextToken()) == null) {
             return null;
         } else if (token.getType() == TokenType.BRACE_L) {
             getNextToken();
             if ((token = nextToken()) == null) {
                 return null;
-            } else if (token.getType() == TokenType.SQUARE_R) {
+            } else if (token.getType() == TokenType.BRACE_R) {
                 getNextToken();
                 return new InitValAST(InitValAST.Type.EMPTY_INIT, null, null);
             } else {
@@ -342,7 +342,7 @@ public class Parser {
                         else
                             return null;
                     }
-                    if (token.getType() != TokenType.SQUARE_R) {
+                    if (token.getType() != TokenType.BRACE_R) {
                         return null;
                     } else {
                         return new InitValAST(InitValAST.Type.INITVAL, null, asts);
@@ -508,7 +508,32 @@ public class Parser {
         } else if (token.getType() == TokenType.IDENT) {
             ident = token.getValue();
             token = nextToken();
-            if (token != null && token.getType() != TokenType.ASSIGN) {
+            if (token != null && token.getType() == TokenType.ASSIGN) {
+                getNextToken();
+                addExpAST = parseAddExp();
+                if (addExpAST == null) {
+                    return null;
+                } else if ((token = getNextToken()).getType() != TokenType.SEMICOLON) {
+                    return null;
+                } else
+                    return new StmtAST(StmtAST.Type.ASSIGN, new AssignAST(AssignAST.Type.VAR, ident, null, addExpAST), null, null, null, null, null);
+            } else if (token != null && token.getType() == TokenType.SQUARE_L) {
+                rollBack();
+                ArrayElement elem = parseArrayElem();
+                if (elem == null) {
+                    return null;
+                } else if ((token = getNextToken()) == null) {
+                    return null;
+                } else if (token.getType() != TokenType.ASSIGN) {
+                    return null;
+                } else if ((addExpAST = parseAddExp()) == null) {
+                    return null;
+                } else if ((token = getNextToken()).getType() != TokenType.SEMICOLON) {
+                    return null;
+                } else {
+                    return new StmtAST(StmtAST.Type.ASSIGN, new AssignAST(AssignAST.Type.ARR_ELEM, null, elem, addExpAST), null, null, null, null, null);
+                }
+            } else {
                 rollBack();
                 addExpAST = parseAddExp();
                 if (addExpAST == null) {
@@ -520,15 +545,6 @@ public class Parser {
                 } else {
                     return new StmtAST(StmtAST.Type.EXP, null, null, addExpAST, null, null, null);
                 }
-            } else {
-                token = getNextToken();
-                addExpAST = parseAddExp();
-                if (addExpAST == null) {
-                    return null;
-                } else if ((token = getNextToken()).getType() != TokenType.SEMICOLON) {
-                    return null;
-                } else
-                    return new StmtAST(StmtAST.Type.ASSIGN, new AssignAST(ident, addExpAST), null, null, null, null, null);
             }
         } else if (token.getType() == TokenType.RETURN) {
             addExpAST = parseAddExp();
@@ -834,8 +850,6 @@ public class Parser {
                 locations.add(add);
             }
         } while ((token = nextToken()) != null && token.getType() == TokenType.SQUARE_L);
-        if (token != null)
-            rollBack();
         return new ArrayElement(ident, dim, locations);
     }
 
