@@ -196,6 +196,7 @@ public class Parser {
                 } else {
                     dim++;
                     while (((token = nextToken()) != null && token.getType() == TokenType.SQUARE_L)) {
+                        getNextToken();
                         add = parseAddExp();
                         if (add != null && (token = getNextToken()) != null && token.getType() == TokenType.SQUARE_R) {
                             lengths.add(add);

@@ -94,6 +94,10 @@ public class IRBuilder {
     private HashMap<String, Ident> globals = new HashMap<>();
     private HashMap<String, Ident> formal_params = new HashMap<>();
 
+    // 检查return语句
+    private boolean has_return = false;
+    private Func.Type func_type;
+
     public IRBuilder(String path) {
         this.path = path;
 
@@ -414,6 +418,10 @@ public class IRBuilder {
             else
                 res.append(visitFuncDef(element.func));
         }
+        if (function_table.get("main") == null) {
+            System.out.println("[IRBuilder] 语义错误: 没有main函数");
+            System.exit(-3);
+        }
         return res.toString();
     }
 
@@ -630,15 +638,15 @@ public class IRBuilder {
     private String visitFuncDef(FuncDefAST ast) {
         StringBuilder res = new StringBuilder();
         formal_params.clear();
+        has_return = false;
 
-        Func.Type type;
         res.append("define dso_local ");
         if (ast.func_type.equals("int")) {
-            type = Func.Type.INT;
+            func_type = Func.Type.INT;
             res.append("i32 @");
         }
         else {
-            type = Func.Type.VOID;
+            func_type = Func.Type.VOID;
             res.append("void @");
         }
         res.append(ast.ident);
@@ -646,7 +654,7 @@ public class IRBuilder {
         res.append(visitFuncParams(ast.params));
 
         // 声明完就要加入，否则无法递归调用
-        function_table.put(ast.ident, new Func(type, ast.ident, ast.params));
+        function_table.put(ast.ident, new Func(func_type, ast.ident, ast.params));
 
         res.append("{\n");
         for (Ident ident : formal_params.values()) {
@@ -661,6 +669,10 @@ public class IRBuilder {
         res.append(visitBlock(ast.block));
         res.append("}\n");
 
+        if (func_type == Func.Type.INT && !has_return) {
+            System.out.println("[IRBuilder] 语义错误: 函数" + ast.ident + "没有返回值");
+            System.exit(-3);
+        }
         return res.toString();
     }
 
@@ -784,7 +796,7 @@ public class IRBuilder {
 
         // 添加IR
         StringBuilder add_code = new StringBuilder();
-        String reg_r = visitAddExp(ast.init_val, add_code);
+        String reg_r = visitAddExp(ast.init_val, add_code, 0);
         res.append(add_code);
         // 添加IR
 
@@ -912,7 +924,7 @@ public class IRBuilder {
                     System.out.println("[IRBuilder] 语义错误: 数组初始化表达式错误");
                     System.exit(-3);
                 }
-                String value = visitAddExp(ast.exp, res);
+                String value = visitAddExp(ast.exp, res, 0);
                 res.append("\t").append("store i32 ").append(value).append(", i32* ").append(addr).append("\n");
             }
         } else if (ast.type == InitValAST.Type.INITVAL) {
@@ -992,7 +1004,7 @@ public class IRBuilder {
 
             // 添加IR
             StringBuilder add_code = new StringBuilder();
-            reg_r = visitAddExp(ast.init_var, add_code);
+            reg_r = visitAddExp(ast.init_var, add_code, 0);
             res.append(add_code);
             // 添加IR
 
@@ -1115,7 +1127,7 @@ public class IRBuilder {
             }
             // 添加IR
             StringBuilder add_code = new StringBuilder();
-            String reg_r = visitAddExp(add, add_code);
+            String reg_r = visitAddExp(add, add_code, 0);
             res.append(add_code);
             // 添加IR
 
@@ -1135,12 +1147,20 @@ public class IRBuilder {
 
         // 添加IR
         StringBuilder add_code = new StringBuilder();
-        String reg = visitAddExp(ast.exp, add_code);
-        res.append(add_code);
-        // 添加IR
-
-        // 添加IR
-        res.append("\tret i32 ").append(reg).append("\n");
+        if (ast.type == ReturnAST.Type.INT && func_type == Func.Type.INT) {
+            String reg = visitAddExp(ast.exp, add_code, 0);
+            res.append(add_code);
+            res.append("\tret i32 ").append(reg).append("\n");
+        } else if (ast.type == ReturnAST.Type.VOID && func_type == Func.Type.VOID) {
+            res.append("\tret void\n");
+        } else if (ast.type == ReturnAST.Type.INT && func_type == Func.Type.VOID) {
+            System.out.println("[IRBuilder] 语义错误: 应当返回void");
+            System.exit(-3);
+        } else {
+            System.out.println("[IRBuilder] 语义错误: return语句缺少返回值");
+            System.exit(-3);
+        }
+        has_return = true;
         return res.toString();
     }
 
@@ -1149,7 +1169,7 @@ public class IRBuilder {
      * @param sb 记录IR代码
      * @return 表达式最后结果的reg
      * */
-    private String visitAddExp(AddExpAST ast, StringBuilder sb) {
+    private String visitAddExp(AddExpAST ast, StringBuilder sb, int dim) {
         // 变量未定义
         if (!checkExp(ast, false)) {
             System.out.println("[IRBuilder] 语义错误: 表达式中有变量未声明");
@@ -1161,7 +1181,7 @@ public class IRBuilder {
 
         // 添加IR
         StringBuilder mul_code = new StringBuilder();
-        reg = visitMulExp(ast.LHS, mul_code);
+        reg = visitMulExp(ast.LHS, mul_code, dim);
         sb.append(mul_code);
         // 添加IR
 
@@ -1170,7 +1190,7 @@ public class IRBuilder {
 
             // 添加IR
             mul_code = new StringBuilder();
-            reg_r = visitMulExp(cur_ast.RHS.LHS, mul_code);
+            reg_r = visitMulExp(cur_ast.RHS.LHS, mul_code, dim);
             sb.append(mul_code);
             // 添加IR
 
@@ -1190,13 +1210,13 @@ public class IRBuilder {
      * @param sb 记录IR代码
      * @return 表达式最后结果的reg
      * */
-    private String visitMulExp(MulExpAST ast, StringBuilder sb) {
+    private String visitMulExp(MulExpAST ast, StringBuilder sb, int dim) {
         String reg, reg_l, reg_r, op;
         MulExpAST cur_ast = ast;
 
         // 添加IR
         StringBuilder unary_code = new StringBuilder();
-        reg = visitUnaryExp(ast.LHS, unary_code);
+        reg = visitUnaryExp(ast.LHS, unary_code, dim);
         sb.append(unary_code);
         // 添加IR
 
@@ -1205,7 +1225,7 @@ public class IRBuilder {
 
             // 添加IR
             unary_code = new StringBuilder();
-            reg_r = visitUnaryExp(cur_ast.RHS.LHS, unary_code);
+            reg_r = visitUnaryExp(cur_ast.RHS.LHS, unary_code, dim);
             sb.append(unary_code);
             // 添加IR
 
@@ -1238,12 +1258,12 @@ public class IRBuilder {
      * @param sb 记录IR代码
      * @return 表达式最后结果的reg
      * */
-    private String visitUnaryExp(UnaryExpAST ast, StringBuilder sb) {
+    private String visitUnaryExp(UnaryExpAST ast, StringBuilder sb, int dim) {
         String reg, reg_r;
 
         // 添加IR
         StringBuilder primary_code = new StringBuilder();
-        reg = reg_r = visitPrimaryExp(ast.primary, primary_code);
+        reg = reg_r = visitPrimaryExp(ast.primary, primary_code, dim);
         sb.append(primary_code);
         // 添加IR
 
@@ -1273,7 +1293,7 @@ public class IRBuilder {
      * @param sb 记录IR代码
      * @return 表达式最后结果的reg
      * */
-    private String visitPrimaryExp(PrimaryExpAST ast, StringBuilder sb) {
+    private String visitPrimaryExp(PrimaryExpAST ast, StringBuilder sb, int dim) {
         String reg, reg_r;
         Ident ident;
         switch (ast.type) {
@@ -1281,7 +1301,7 @@ public class IRBuilder {
 
                 // 添加IR
                 StringBuilder add_code = new StringBuilder();
-                reg = visitAddExp(ast.exp, add_code);
+                reg = visitAddExp(ast.exp, add_code, dim);
                 sb.append(add_code);
                 // 添加IR
 
@@ -1292,12 +1312,20 @@ public class IRBuilder {
                     System.out.println("[IRBuilder] 语义错误: 变量 " + ast.l_val + " 未定义");
                     System.exit(-3);
                 }
-                reg_r = ident.reg;
-                reg = getReg();
-
-                // 添加IR
-                sb.append("\t").append(reg).append(" = load i32, i32* ").append(reg_r).append("\n");
-
+                if (ident.array != null) {
+                    // 可能为数组名
+                    if (ident.array.dim != dim) {
+                        System.out.println("[IRBuilder] 语义错误: 数组元素 " + ast.array_elem.ident + " 维数错误");
+                        System.exit(-3);
+                    }
+                    String[] locations = new String[1];
+                    locations[0] = "0";
+                    reg = getArrayElement(ident.reg, ident.array.lengths, locations, sb);
+                } else {
+                    reg_r = ident.reg;
+                    reg = getReg();
+                    sb.append("\t").append(reg).append(" = load i32, i32* ").append(reg_r).append("\n");
+                }
                 break;
             case FUNC_CALL:
                 reg = getReg();
@@ -1307,23 +1335,30 @@ public class IRBuilder {
 
                 break;
             case NUMBER:
+                if (dim != 0) {
+                    System.out.println("[IRBuilder] 语义错误: 维数错误");
+                    System.exit(-3);
+                }
                 reg = ast.number;
                 break;
             case ARR_ELEM:
                 ident = searchIdent(ast.array_elem.ident);
-                if (ident == null) {
+                if (ident == null || ident.array == null) {
                     System.out.println("[IRBuilder] 语义错误: 数组元素 " + ast.array_elem.ident + " 未定义");
                     System.exit(-3);
                 }
-                if (ident.array.dim != ast.array_elem.dim) {
+                if (ident.array.dim != ast.array_elem.dim + dim) {
                     System.out.println("[IRBuilder] 语义错误: 数组元素 " + ast.array_elem.ident + " 维数错误");
                     System.exit(-3);
                 }
                 String[] locations = addExpArray2StringArray(ast.array_elem.locations, sb);
                 reg_r = getArrayElement(ident.reg, ident.array.lengths, locations, sb);
-                reg = getReg();
-                // 添加IR
-                sb.append("\t").append(reg).append(" = load i32, i32* ").append(reg_r).append("\n");
+                if (dim == 0) {
+                    reg = getReg();
+                    // 添加IR
+                    sb.append("\t").append(reg).append(" = load i32, i32* ").append(reg_r).append("\n");
+                } else
+                    reg = reg_r;
                 break;
             default:
                 reg = "";
@@ -1341,7 +1376,7 @@ public class IRBuilder {
                 System.out.println("[IRBuilder] 语义错误: 数组元素索引错误");
                 System.exit(-3);
             }
-            res[i] = visitAddExp(add, sb);
+            res[i] = visitAddExp(add, sb, 0);
         }
         return res;
     }
@@ -1358,6 +1393,10 @@ public class IRBuilder {
             System.out.println("[IRBuilder] 语义错误: 函数 " + ident + " 未声明");
             System.exit(-3);
         }
+        if (func.params.params.size() != ast.params.size()) {
+            System.out.println("[IRBuilder] 语义错误: 函数 " + ident + " 参数数目错误");
+            System.exit(-3);
+        }
         String type = "i32";
         switch (func.type) {
             case INT:
@@ -1372,10 +1411,12 @@ public class IRBuilder {
 
         StringBuilder add_code;
         String reg;
-        for (AddExpAST add : ast.params) {
+        int len = ast.params.size();
+        for (int i = 0; i < len; ++i) {
             // 添加IR
             add_code = new StringBuilder();
-            reg = visitAddExp(add, add_code);
+            // 计算参数
+            reg = visitAddExp(ast.params.get(i), add_code, func.params.params.get(i).dim);
             res.append(add_code);
             // 添加IR
 
@@ -1552,7 +1593,7 @@ public class IRBuilder {
 
         // 添加IR
         StringBuilder add_code = new StringBuilder();
-        reg = visitAddExp(ast.add, add_code);
+        reg = visitAddExp(ast.add, add_code, 0);
         sb.append(add_code);
         // 添加IR
 
@@ -1561,7 +1602,7 @@ public class IRBuilder {
 
             // 添加IR
             add_code = new StringBuilder();
-            reg_r = visitAddExp(cur_ast.rel.add, add_code);
+            reg_r = visitAddExp(cur_ast.rel.add, add_code, 0);
             sb.append(add_code);
             // 添加IR
 
