@@ -5,72 +5,66 @@ declare void @putch(i32)
 declare void @memset(i32*, i32, i32)
 declare i32 @getarray(i32*)
 declare void @putarray(i32, i32*)
-define dso_local i32 @sum2d([3 x i32]* %r1) {
-	%r2 = alloca i32
-	store i32 0, i32* %r2
-	%r3 = alloca i32
-	store i32 0, i32* %r3
+define dso_local i32 @_getMaxOfAll(i32* %r1, i32 %r2) {
+	%r3= alloca i32
+	store i32 %r2, i32* %r3
+	%r4 = alloca i32
+	%r5 = sub i32 0, 999999
+	store i32 %r5, i32* %r4
+	%r6 = load i32, i32* %r3
+	%r7 = sub i32 %r6, 1
+	store i32 %r7, i32* %r3
 	br label %l2
   l2:
-	%r4 = load i32, i32* %r2
-	%r5 = icmp slt i32 %r4, 2
-	%r6 = zext i1 %r5 to i32
-	%r7 = icmp ne i32 %r6, 0
-	br i1 %r7, label %l3, label %l1
-  l3:
-	%r8 = alloca i32
-	store i32 0, i32* %r8
-	br label %l5
-  l5:
-	%r9 = load i32, i32* %r8
-	%r10 = icmp slt i32 %r9, 3
+	%r8 = load i32, i32* %r3
+	%r9 = sub i32 0, 1
+	%r10 = icmp sgt i32 %r8, %r9
 	%r11 = zext i1 %r10 to i32
 	%r12 = icmp ne i32 %r11, 0
-	br i1 %r12, label %l6, label %l4
-  l6:
+	br i1 %r12, label %l3, label %l1
+  l3:
 	%r13 = load i32, i32* %r3
-	%r14 = load i32, i32* %r2
-	%r15 = load i32, i32* %r8
-	%r16 = getelementptr [3 x i32], [3 x i32]* %r1, i32 0, i32 %r14, i32 %r15
-	%r17 = load i32, i32* %r16
-	%r18 = add i32 %r13, %r17
-	store i32 %r18, i32* %r3
-	%r19 = load i32, i32* %r8
-	%r20 = add i32 %r19, 1
-	store i32 %r20, i32* %r8
-	br label %l5
+	%r14 = getelementptr i32, i32* %r1, i32 %r13
+	%r15 = load i32, i32* %r14
+	%r16 = load i32, i32* %r4
+	%r17 = icmp sgt i32 %r15, %r16
+	%r18 = zext i1 %r17 to i32
+	%r19 = icmp ne i32 %r18, 0
+	br i1 %r19, label %l5, label %l4
+  l5:
+	%r20 = load i32, i32* %r3
+	%r21 = getelementptr i32, i32* %r1, i32 %r20
+	%r22 = load i32, i32* %r21
+	store i32 %r22, i32* %r4
+	br label %l4
   l4:
-	%r21 = load i32, i32* %r2
-	%r22 = add i32 %r21, 1
-	store i32 %r22, i32* %r2
+	%r23 = load i32, i32* %r3
+	%r24 = sub i32 %r23, 1
+	store i32 %r24, i32* %r3
 	br label %l2
   l1:
-	%r23 = load i32, i32* %r3
-	ret i32 %r23
+	%r25 = load i32, i32* %r4
+	ret i32 %r25
 }
 define dso_local i32 @main() {
-	%r24 = alloca [2 x [3 x i32]]
-	%r25 = getelementptr [2 x [3 x i32]], [2 x [3 x i32]]* %r24, i32 0, i32 0, i32 0
-	call void @memset(i32* %r25, i32 0, i32 24)
-	%r26 = getelementptr [2 x [3 x i32]], [2 x [3 x i32]]* %r24, i32 0, i32 0
+	%r26 = alloca [3 x i32]
 	%r27 = getelementptr [3 x i32], [3 x i32]* %r26, i32 0, i32 0
-	store i32 1, i32* %r27
-	%r28 = getelementptr [3 x i32], [3 x i32]* %r26, i32 0, i32 1
-	store i32 2, i32* %r28
-	%r29 = getelementptr [3 x i32], [3 x i32]* %r26, i32 0, i32 2
-	store i32 3, i32* %r29
-	%r30 = getelementptr [2 x [3 x i32]], [2 x [3 x i32]]* %r24, i32 0, i32 1
-	%r31 = getelementptr [3 x i32], [3 x i32]* %r30, i32 0, i32 0
-	store i32 4, i32* %r31
-	%r32 = getelementptr [3 x i32], [3 x i32]* %r30, i32 0, i32 1
-	store i32 5, i32* %r32
-	%r33 = getelementptr [2 x [3 x i32]], [2 x [3 x i32]]* %r24, i32 0, i32 1, i32 2
-	store i32 4, i32* %r33
-	%r34 = getelementptr [2 x [3 x i32]], [2 x [3 x i32]]* %r24, i32 0, i32 1, i32 2
-	%r35 = load i32, i32* %r34
-	call void @putint(i32 %r35)
-	%r37 = getelementptr [2 x [3 x i32]], [2 x [3 x i32]]* %r24, i32 0, i32 0
-	%r36 = call i32 @sum2d(i32 %r37)
-	call void @putint(i32 %r36)
+	call void @memset(i32* %r27, i32 0, i32 12)
+	%r28 = getelementptr [3 x i32], [3 x i32]* %r26, i32 0, i32 0
+	%r29 = sub i32 0, 2
+	store i32 %r29, i32* %r28
+	%r30 = getelementptr [3 x i32], [3 x i32]* %r26, i32 0, i32 1
+	store i32 2, i32* %r30
+	%r31 = getelementptr [3 x i32], [3 x i32]* %r26, i32 0, i32 2
+	%r32 = sub i32 0, 7
+	store i32 %r32, i32* %r31
+	%r33 = alloca i32
+	%r35 = getelementptr [3 x i32], [3 x i32]* %r26, i32 0, i32 0
+	%r34 = call i32 @_getMaxOfAll(i32 %r35, i32 3)
+	%r36 = getelementptr [3 x i32], [3 x i32]* %r26, i32 0, i32 %r34
+	%r37 = load i32, i32* %r36
+	store i32 %r37, i32* %r33
+	%r38 = load i32, i32* %r33
+	call void @putint(i32 %r38)
 	ret i32 0
 }

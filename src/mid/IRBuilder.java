@@ -667,6 +667,9 @@ public class IRBuilder {
             }
         }
         res.append(visitBlock(ast.block));
+        if (func_type == Func.Type.VOID) {
+            res.append("\tret void\n");
+        }
         res.append("}\n");
 
         if (func_type == Func.Type.INT && !has_return) {
@@ -707,9 +710,9 @@ public class IRBuilder {
             formal_params.put(ast.ident, ident);
             res.append("i32 ").append(reg);
         } else if (ast.dim == 1) {
-            //int[] lengths = new int[1];
-            //lengths[0] = Integer.MAX_VALUE;
-            ident = new Ident(ast.ident, Ident.Type.ARR, reg, null, new Array(1, null));
+            int[] lengths = new int[1];
+            lengths[0] = Integer.MAX_VALUE;
+            ident = new Ident(ast.ident, Ident.Type.ARR, reg, null, new Array(1, lengths));
             formal_params.put(ast.ident, ident);
             res.append("i32* ").append(reg);
         } else {
@@ -867,9 +870,16 @@ public class IRBuilder {
     private String generateArrayType(int[] lengths) {
         StringBuilder res_l = new StringBuilder();
         StringBuilder res_r = new StringBuilder();
-        for (int length : lengths) {
-            res_l.append("[").append(length).append(" x ");
-            res_r.append("]");
+        if (lengths[0] != Integer.MAX_VALUE) {
+            for (int length : lengths) {
+                res_l.append("[").append(length).append(" x ");
+                res_r.append("]");
+            }
+        } else {
+            for (int i = 1, len = lengths.length; i < len; ++i) {
+                res_l.append("[").append(lengths[i]).append(" x ");
+                res_r.append("]");
+            }
         }
         return res_l.toString() + "i32" + res_r.toString();
     }
@@ -960,7 +970,11 @@ public class IRBuilder {
         String reg = getReg();
         String array_type = generateArrayType(array_lengths);
         sb.append("\t").append(reg).append(" = getelementptr ").append(array_type)
-                .append(", ").append(array_type).append("* ").append(start_addr).append(", i32 0");
+                .append(", ").append(array_type).append("* ").append(start_addr);
+        // 不是指针
+        if (array_lengths[0] != Integer.MAX_VALUE) {
+            sb.append(", i32 0");
+        }
         for (String i : location) {
             sb.append(", i32 ").append(i);
         }

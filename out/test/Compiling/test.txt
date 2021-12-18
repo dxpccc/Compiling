@@ -1,20 +1,23 @@
-int sum2d(int a[][3]) {
-    int i = 0, sum = 0;
-    while (i < 2) {
-        int j = 0;
-        while (j < 3) {
-            sum = sum + a[i][j];
-            j = j + 1;
+int _getMaxOfAll(int result[], int size) {
+    int maxNum;
+    maxNum = -999999;
+    size = size - 1;
+    while(size > -1) {
+        if (result[size] > maxNum) {
+            maxNum = result[size];
         }
-        i = i + 1;
+        size = size - 1;
     }
-    return sum;
+    return maxNum;
 }
 
 int main() {
-    int arr[2][3] = {{1, 2, 3}, {4, 5}};
-    arr[1][2] = 4;
-    putint(arr[1][2]);
-    putint(sum2d(arr));
+    int result[3];
+    result[0] = -2;
+    result[1] = 2;
+    result[2] = -7;
+    int x;
+    x = result[_getMaxOfAll(result, 3)];
+    putint(x);
     return 0;
 }
