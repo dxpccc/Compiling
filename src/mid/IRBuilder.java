@@ -1119,7 +1119,8 @@ public class IRBuilder {
                 if (isVoidFunc(ast.exp)) {
                     String func_call = visitFuncCall(ast.exp.LHS.LHS.primary.func_call, null);
                     res.append(func_call);
-                }
+                } else
+                    visitAddExp(ast.exp, res, 0);
                 break;
             case BLOCK:
                 res.append(visitBlock(ast.block));
@@ -1375,8 +1376,16 @@ public class IRBuilder {
                 }
                 break;
             case FUNC_CALL:
+                Func func = searchFunc(ast.func_call.ident);
+                if (func == null) {
+                    System.out.println("[IRBuilder] 语义错误: 函数 " + ast.func_call.ident + " 未声明");
+                    System.exit(-3);
+                }
+                if (func.type == Func.Type.VOID) {
+                    System.out.println("[IRBuilder] 语义错误: 函数 " + ast.func_call.ident + " 返回值为void");
+                    System.exit(-3);
+                }
                 reg = getReg();
-
                 // 添加IR
                 sb.append(visitFuncCall(ast.func_call, reg));
 
