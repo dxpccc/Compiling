@@ -22,7 +22,7 @@ class Ident {
     }
     public final String ident;
     public Type type;
-    public final String reg;
+    public String reg;
     public final String value;
     public final Array array;
 
@@ -75,10 +75,12 @@ class Func {
     }
     public final Type type;
     public final String ident;
+    public final FuncParams params;
 
-    public Func(Type type, String ident) {
+    public Func(Type type, String ident, FuncParams params) {
         this.type = type;
         this.ident = ident;
+        this.params = params;
     }
 }
 
@@ -90,6 +92,7 @@ public class IRBuilder {
     private Stack<HashMap<String, Ident>> ident_table_list = new Stack<>();
     private HashMap<String, Func> function_table = new HashMap<>();
     private HashMap<String, Ident> globals = new HashMap<>();
+    private HashMap<String, Ident> formal_params = new HashMap<>();
 
     public IRBuilder(String path) {
         this.path = path;
@@ -99,13 +102,45 @@ public class IRBuilder {
         ir.append("declare void @putint(i32)\n");
         ir.append("declare void @putch(i32)\n");
         ir.append("declare void @memset(i32*, i32, i32)\n");
-        function_table.put("getint", new Func(Func.Type.INT, "getint"));
-        function_table.put("getch", new Func(Func.Type.INT, "getch"));
-        function_table.put("putint", new Func(Func.Type.VOID, "putint"));
-        function_table.put("putch", new Func(Func.Type.VOID, "putch"));
-        function_table.put("memset", new Func(Func.Type.VOID, "memset"));
+        ir.append("declare i32 @getarray(i32*)\n");
+        ir.append("declare void @putarray(i32, i32*)\n");
 
-        ident_table_list.push(globals);
+        ArrayList<FuncParam> param_list;
+        FuncParams params;
+
+        params = new FuncParams(new ArrayList<>());
+        function_table.put("getint", new Func(Func.Type.INT, "getint", params));
+
+        params = new FuncParams(new ArrayList<>());
+        function_table.put("getch", new Func(Func.Type.INT, "getch", params));
+
+        param_list = new ArrayList<>();
+        param_list.add(new FuncParam("a", 0, null));
+        params = new FuncParams(param_list);
+        function_table.put("putint", new Func(Func.Type.VOID, "putint", params));
+
+        param_list = new ArrayList<>();
+        param_list.add(new FuncParam("a", 0, null));
+        params = new FuncParams(param_list);
+        function_table.put("putch", new Func(Func.Type.VOID, "putch", params));
+
+        param_list = new ArrayList<>();
+        param_list.add(new FuncParam("a", 1, new ArrayList<>()));
+        param_list.add(new FuncParam("b", 0, null));
+        param_list.add(new FuncParam("c", 0, null));
+        params = new FuncParams(param_list);
+        function_table.put("memset", new Func(Func.Type.VOID, "memset", params));
+
+        param_list = new ArrayList<>();
+        param_list.add(new FuncParam("a", 1, new ArrayList<>()));
+        params = new FuncParams(param_list);
+        function_table.put("getarray", new Func(Func.Type.INT, "getarray", params));
+
+        param_list = new ArrayList<>();
+        param_list.add(new FuncParam("a", 0, null));
+        param_list.add(new FuncParam("b", 1, new ArrayList<>()));
+        params = new FuncParams(param_list);
+        function_table.put("putarray", new Func(Func.Type.VOID, "putarray", params));
     }
 
     public IRBuilder() {
@@ -169,18 +204,70 @@ public class IRBuilder {
     /* *********** 表达式检查 *********** */
 
     /* ************ 变量命名检查 ************ */
-    private boolean checkExistedIdent(String ident) {
-        return searchIdent(ident) != null;
+    private boolean checkIdent(String ident) {
+        return checkExistedLocalIdent(ident) || checkFormalParamIdent(ident);
     }
 
     private boolean checkExistedLocalIdent(String ident) {
         return searchLocalIdent(ident) != null;
     }
 
-    private boolean checkExistedExternalIdent(String ident) {
-        return searchExternIdent(ident) != null;
+    private boolean checkFormalParamIdent(String ident) {
+        return searchFormalParamIdent(ident) != null;
     }
     /* ************ 变量命名检查 ************ */
+
+    /* **************** 搜索变量 **************** */
+    private Ident searchIdent(String ident) {
+        Ident _ident;
+        if ((_ident = searchFormalParamIdent(ident)) != null) {
+            return _ident;
+        } else if ((_ident = searchLocalIdent(ident)) != null) {
+            return _ident;
+        } else if ((_ident = searchExternIdent(ident)) != null) {
+            return _ident;
+        } else if ((_ident =searchGlobalIdent(ident)) != null) {
+            return _ident;
+        } else {
+            return null;
+        }
+    }
+
+    private Ident searchLocalIdent(String ident) {
+        if (ident_table_list.isEmpty())
+            return null;
+        else
+            return ident_table_list.peek().get(ident);
+    }
+
+    private Ident searchFormalParamIdent(String ident) {
+        if (formal_params.isEmpty())
+            return null;
+        else
+            return formal_params.get(ident);
+    }
+
+    private Ident searchGlobalIdent(String ident) {
+        if (globals.isEmpty())
+            return null;
+        else
+            return globals.get(ident);
+    }
+
+    private Ident searchExternIdent(String ident) {
+        int len = ident_table_list.size();
+        Ident _ident = null;
+        if (len < 1)
+            return null;
+        for (int i = len - 2; i >= 0; --i) {
+            _ident = ident_table_list.elementAt(i).get(ident);
+            if (_ident != null) {
+                break;
+            }
+        }
+        return _ident;
+    }
+    /* **************** 搜索变量 **************** */
 
     /* ************** 计算常量表达式的值 *************** */
     private int calculateAddExp(AddExpAST ast) {
@@ -274,34 +361,6 @@ public class IRBuilder {
             return false;
     }
 
-    /* **************** 搜索变量 **************** */
-    private Ident searchIdent(String ident) {
-        Ident _ident = searchLocalIdent(ident);
-        return _ident == null? searchExternIdent(ident) : _ident;
-    }
-
-    private Ident searchLocalIdent(String ident) {
-        if (ident_table_list.isEmpty())
-            return null;
-        else
-            return ident_table_list.peek().get(ident);
-    }
-
-    private Ident searchExternIdent(String ident) {
-        int len = ident_table_list.size();
-        Ident _ident = null;
-        if (len < 1)
-            return null;
-        for (int i = len - 2; i >= 0; --i) {
-            _ident = ident_table_list.elementAt(i).get(ident);
-            if (_ident != null) {
-                break;
-            }
-        }
-        return _ident;
-    }
-    /* **************** 搜索变量 **************** */
-
     /* **************** 搜索函数 **************** */
     private Func searchFunc(String ident) {
         return function_table.get(ident);
@@ -349,10 +408,12 @@ public class IRBuilder {
      * */
     private String visitCompUnit(CompUnitAST ast) {
         StringBuilder res = new StringBuilder();
-        for (GlobalDeclAST global : ast.globals) {
-            res.append(visitGlobalDecl(global));
+        for (CompUnitElement element : ast.elems) {
+            if (element.type == CompUnitElement.Type.GLOBAL)
+                res.append(visitGlobalDecl(element.global));
+            else
+                res.append(visitFuncDef(element.func));
         }
-        res.append(visitFuncDef(ast.func_def));
         return res.toString();
     }
 
@@ -393,7 +454,7 @@ public class IRBuilder {
         String ident = ast.ident;
 
         // 全局变量已存在
-        if (checkExistedLocalIdent(ident)) {
+        if (checkIdent(ident)) {
             System.out.println("[IRBuilder] 语义错误: 全局常量 " + ident + " 已定义");
             System.exit(-3);
         }
@@ -421,7 +482,7 @@ public class IRBuilder {
         String ident = ast.ident;
 
         // 全局变量已存在
-        if (checkExistedLocalIdent(ident)) {
+        if (checkIdent(ident)) {
             System.out.println("[IRBuilder] 语义错误: 全局常量数组 " + ident + " 已定义");
             System.exit(-3);
         }
@@ -499,7 +560,7 @@ public class IRBuilder {
         String ident = ast.ident;
 
         // 全局变量已存在
-        if (checkExistedLocalIdent(ident)) {
+        if (checkIdent(ident)) {
             System.out.println("[IRBuilder] 语义错误: 全局变量 " + ident + " 已定义");
             System.exit(-3);
         }
@@ -534,7 +595,7 @@ public class IRBuilder {
         String ident = ast.ident;
 
         // 全局变量已存在
-        if (checkExistedLocalIdent(ident)) {
+        if (checkIdent(ident)) {
             System.out.println("[IRBuilder] 语义错误: 全局变量 " + ident + " 已定义");
             System.exit(-3);
         }
@@ -568,9 +629,84 @@ public class IRBuilder {
      * */
     private String visitFuncDef(FuncDefAST ast) {
         StringBuilder res = new StringBuilder();
-        res.append("define dso_local i32 @").append(ast.getIdent()).append("(){\n");
+        formal_params.clear();
+
+        Func.Type type;
+        res.append("define dso_local ");
+        if (ast.func_type.equals("int")) {
+            type = Func.Type.INT;
+            res.append("i32 @");
+        }
+        else {
+            type = Func.Type.VOID;
+            res.append("void @");
+        }
+        res.append(ast.ident);
+
+        res.append(visitFuncParams(ast.params));
+
+        // 声明完就要加入，否则无法递归调用
+        function_table.put(ast.ident, new Func(type, ast.ident, ast.params));
+
+        res.append("{\n");
+        for (Ident ident : formal_params.values()) {
+            if (ident.type == Ident.Type.VAR_INIT) {
+                // 复制int类型形参
+                String reg = getReg();
+                res.append("\t").append(reg).append("= alloca i32\n");
+                res.append("\t").append("store i32 ").append(ident.reg).append(", i32* ").append(reg).append("\n");
+                ident.reg = reg;
+            }
+        }
         res.append(visitBlock(ast.block));
         res.append("}\n");
+
+        return res.toString();
+    }
+
+    /**
+     * @param ast 函数形参列表
+     * @return IR
+     */
+    private String visitFuncParams(FuncParams ast) {
+        StringBuilder res = new StringBuilder();
+        res.append("(");
+
+        for (FuncParam param : ast.params) {
+            res.append(", ").append(visitFuncParam(param));
+        }
+
+        res.append(") ");
+        if (ast.params.size() != 0)
+            res.delete(1, 3);
+        return res.toString();
+    }
+
+    /**
+     * @param ast 函数形参
+     * @return IR
+     */
+    private String visitFuncParam(FuncParam ast) {
+        StringBuilder res = new StringBuilder();
+        String reg = getReg();
+        Ident ident;
+        if (ast.dim == 0) {
+            ident = new Ident(ast.ident, Ident.Type.VAR_INIT, reg, null, null);
+            formal_params.put(ast.ident, ident);
+            res.append("i32 ").append(reg);
+        } else if (ast.dim == 1) {
+            int[] lengths = new int[1];
+            lengths[0] = Integer.MAX_VALUE;
+            ident = new Ident(ast.ident, Ident.Type.ARR, reg, null, new Array(1, lengths));
+            formal_params.put(ast.ident, ident);
+            res.append("i32* ").append(reg);
+        } else {
+            int[] lengths = calculateLengths(ast.lengths);
+            String type = generateArrayType(lengths);
+            ident = new Ident(ast.ident, Ident.Type.ARR, reg, null, new Array(ast.dim, lengths));
+            formal_params.put(ast.ident, ident);
+            res.append(type).append("* ").append(reg);
+        }
         return res.toString();
     }
 
@@ -630,7 +766,7 @@ public class IRBuilder {
         StringBuilder res = new StringBuilder();
         String ident = ast.ident;
         // 块内局部变量已存在
-        if (checkExistedLocalIdent(ident)) {
+        if (checkIdent(ident)) {
             System.out.println("[IRBuilder] 语义错误: " + ident + " 已定义");
             System.exit(-3);
         }
@@ -663,7 +799,7 @@ public class IRBuilder {
         StringBuilder res = new StringBuilder();
         String ident = ast.ident;
         // 块内局部变量已存在
-        if (checkExistedLocalIdent(ident)) {
+        if (checkIdent(ident)) {
             System.out.println("[IRBuilder] 语义错误: 常量数组" + ident + " 已定义");
             System.exit(-3);
         }
@@ -841,7 +977,7 @@ public class IRBuilder {
         StringBuilder res = new StringBuilder();
         String ident = ast.ident;
         // 块内局部变量已存在
-        if (checkExistedLocalIdent(ident)) {
+        if (checkIdent(ident)) {
             System.out.println("[IRBuilder] 语义错误: " + ident + " 已定义");
             System.exit(-3);
         }
@@ -875,7 +1011,7 @@ public class IRBuilder {
         String ident = ast.ident;
 
         // 块内局部变量已存在
-        if (checkExistedLocalIdent(ident)) {
+        if (checkIdent(ident)) {
             System.out.println("[IRBuilder] 语义错误: " + ident + " 已定义");
             System.exit(-3);
         }
@@ -1005,7 +1141,6 @@ public class IRBuilder {
 
         // 添加IR
         res.append("\tret i32 ").append(reg).append("\n");
-        reg = getReg();
         return res.toString();
     }
 

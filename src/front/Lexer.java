@@ -149,10 +149,6 @@ public class Lexer {
                 token.setType(TokenType.INT);
                 token.setValue(value.toString());
                 break;
-            case "main":
-                token.setType(TokenType.MAIN);
-                token.setValue(value.toString());
-                break;
             case "return":
                 token.setType(TokenType.RETURN);
                 token.setValue(value.toString());
@@ -175,6 +171,10 @@ public class Lexer {
                 break;
             case "continue":
                 token.setType(TokenType.CONTINUE);
+                token.setValue(value.toString());
+                break;
+            case "void":
+                token.setType(TokenType.VOID);
                 token.setValue(value.toString());
                 break;
             default:

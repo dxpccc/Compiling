@@ -7,7 +7,6 @@ public enum TokenType {
     NUMBER,
     CONST,
     INT,
-    MAIN,
     RETURN,
     IF,
     ELSE,
@@ -36,5 +35,6 @@ public enum TokenType {
     BREAK,
     CONTINUE,
     SQUARE_L,
-    SQUARE_R
+    SQUARE_R,
+    VOID
 }
