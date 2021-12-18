@@ -1,6 +1,6 @@
-[jobs.short_circuit]
+[jobs.mdarray]
 image = { source = "dockerfile", path = "."}
 
 run = [
-    "java Main $input $ir"
+    "java Test1 $input $ir"
 ]
