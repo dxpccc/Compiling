@@ -687,6 +687,11 @@ public class IRBuilder {
         if (func_type == Func.Type.VOID) {
             res.append("\tret void\n");
         }
+        String[] strings = res.toString().split("\n");
+        if (strings[strings.length - 1].matches("\\s{2}l\\d+:")) {
+            res.append("\tret\n");
+        }
+
         res.append("}\n");
 
         if (func_type == Func.Type.INT && !has_return) {
@@ -737,7 +742,10 @@ public class IRBuilder {
             res.append("i32* ").append(reg);
             sb.append("i32*");
         } else {
-            int[] lengths = calculateLengths(ast.lengths);
+            int[] lengths = new int[ast.dim];
+            int[] lens = calculateLengths(ast.lengths);
+            lengths[0] = Integer.MAX_VALUE;
+            System.arraycopy(lens, 0, lengths, 1, ast.dim - 1);
             String type = generateArrayType(lengths);
             ident = new Ident(ast.ident, Ident.Type.ARR, reg, null, new Array(ast.dim, lengths));
             formal_params.put(ast.ident, ident);
