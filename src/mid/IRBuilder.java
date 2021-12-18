@@ -689,7 +689,10 @@ public class IRBuilder {
         }
         String[] strings = res.toString().split("\n");
         if (strings[strings.length - 1].matches("\\s{2}l\\d+:")) {
-            res.append("\tret\n");
+            if (func_type == Func.Type.INT)
+                res.append("\tret 0\n");
+            else
+                res.append("\tret void\n");
         }
 
         res.append("}\n");

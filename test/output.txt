@@ -314,7 +314,7 @@ define dso_local i32 @getMid(i32* %r178) {
 	ret i32 %r200
 	br label %l33
   l33:
-	ret
+	ret 0
 }
 define dso_local i32 @getMost(i32* %r201) {
 	%r202 = alloca [1000 x i32]
