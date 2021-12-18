@@ -76,11 +76,13 @@ class Func {
     public final Type type;
     public final String ident;
     public final FuncParams params;
+    public final String[] params_type;
 
-    public Func(Type type, String ident, FuncParams params) {
+    public Func(Type type, String ident, FuncParams params, String[] params_type) {
         this.type = type;
         this.ident = ident;
         this.params = params;
+        this.params_type = params_type;
     }
 }
 
@@ -111,40 +113,54 @@ public class IRBuilder {
 
         ArrayList<FuncParam> param_list;
         FuncParams params;
+        String[] params_type;
 
         params = new FuncParams(new ArrayList<>());
-        function_table.put("getint", new Func(Func.Type.INT, "getint", params));
+        function_table.put("getint", new Func(Func.Type.INT, "getint", params, null));
 
         params = new FuncParams(new ArrayList<>());
-        function_table.put("getch", new Func(Func.Type.INT, "getch", params));
+        function_table.put("getch", new Func(Func.Type.INT, "getch", params, null));
 
         param_list = new ArrayList<>();
         param_list.add(new FuncParam("a", 0, null));
         params = new FuncParams(param_list);
-        function_table.put("putint", new Func(Func.Type.VOID, "putint", params));
+        params_type = new String[1];
+        params_type[0] = "i32";
+        function_table.put("putint", new Func(Func.Type.VOID, "putint", params, params_type));
 
         param_list = new ArrayList<>();
         param_list.add(new FuncParam("a", 0, null));
         params = new FuncParams(param_list);
-        function_table.put("putch", new Func(Func.Type.VOID, "putch", params));
+        params_type = new String[1];
+        params_type[0] = "i32";
+        function_table.put("putch", new Func(Func.Type.VOID, "putch", params, params_type));
 
         param_list = new ArrayList<>();
         param_list.add(new FuncParam("a", 1, new ArrayList<>()));
         param_list.add(new FuncParam("b", 0, null));
         param_list.add(new FuncParam("c", 0, null));
         params = new FuncParams(param_list);
-        function_table.put("memset", new Func(Func.Type.VOID, "memset", params));
+        params_type = new String[3];
+        params_type[0] = "i32*";
+        params_type[1] = "i32";
+        params_type[2] = "i32";
+        function_table.put("memset", new Func(Func.Type.VOID, "memset", params, params_type));
 
         param_list = new ArrayList<>();
         param_list.add(new FuncParam("a", 1, new ArrayList<>()));
         params = new FuncParams(param_list);
-        function_table.put("getarray", new Func(Func.Type.INT, "getarray", params));
+        params_type = new String[1];
+        params_type[0] = "i32*";
+        function_table.put("getarray", new Func(Func.Type.INT, "getarray", params, params_type));
 
         param_list = new ArrayList<>();
         param_list.add(new FuncParam("a", 0, null));
         param_list.add(new FuncParam("b", 1, new ArrayList<>()));
         params = new FuncParams(param_list);
-        function_table.put("putarray", new Func(Func.Type.VOID, "putarray", params));
+        params_type = new String[2];
+        params_type[0] = "i32";
+        params_type[1] = "i32*";
+        function_table.put("putarray", new Func(Func.Type.VOID, "putarray", params, params_type));
     }
 
     public IRBuilder() {
@@ -651,10 +667,11 @@ public class IRBuilder {
         }
         res.append(ast.ident);
 
-        res.append(visitFuncParams(ast.params));
+        String[] params_type = new String[ast.params.params.size()];
+        res.append(visitFuncParams(ast.params, params_type));
 
         // 声明完就要加入，否则无法递归调用
-        function_table.put(ast.ident, new Func(func_type, ast.ident, ast.params));
+        function_table.put(ast.ident, new Func(func_type, ast.ident, ast.params, params_type));
 
         res.append("{\n");
         for (Ident ident : formal_params.values()) {
@@ -683,12 +700,14 @@ public class IRBuilder {
      * @param ast 函数形参列表
      * @return IR
      */
-    private String visitFuncParams(FuncParams ast) {
+    private String visitFuncParams(FuncParams ast, String[] params_type) {
         StringBuilder res = new StringBuilder();
         res.append("(");
 
-        for (FuncParam param : ast.params) {
-            res.append(", ").append(visitFuncParam(param));
+        for (int i = 0, len = ast.params.size(); i < len; ++i) {
+            StringBuilder sb = new StringBuilder();
+            res.append(", ").append(visitFuncParam(ast.params.get(i), sb));
+            params_type[i] = sb.toString();
         }
 
         res.append(") ");
@@ -701,7 +720,7 @@ public class IRBuilder {
      * @param ast 函数形参
      * @return IR
      */
-    private String visitFuncParam(FuncParam ast) {
+    private String visitFuncParam(FuncParam ast, StringBuilder sb) {
         StringBuilder res = new StringBuilder();
         String reg = getReg();
         Ident ident;
@@ -709,18 +728,21 @@ public class IRBuilder {
             ident = new Ident(ast.ident, Ident.Type.VAR_INIT, reg, null, null);
             formal_params.put(ast.ident, ident);
             res.append("i32 ").append(reg);
+            sb.append("i32");
         } else if (ast.dim == 1) {
             int[] lengths = new int[1];
             lengths[0] = Integer.MAX_VALUE;
             ident = new Ident(ast.ident, Ident.Type.ARR, reg, null, new Array(1, lengths));
             formal_params.put(ast.ident, ident);
             res.append("i32* ").append(reg);
+            sb.append("i32*");
         } else {
             int[] lengths = calculateLengths(ast.lengths);
             String type = generateArrayType(lengths);
             ident = new Ident(ast.ident, Ident.Type.ARR, reg, null, new Array(ast.dim, lengths));
             formal_params.put(ast.ident, ident);
             res.append(type).append("* ").append(reg);
+            sb.append(type).append("*");
         }
         return res.toString();
     }
@@ -1442,9 +1464,9 @@ public class IRBuilder {
             res.append(caller).append(" = ");
         res.append("call ").append(type).append(" @").append(ident).append("(");
         if (!regs.isEmpty()) {
-            res.append("i32 ").append(regs.get(0));
+            res.append(func.params_type[0]).append(" ").append(regs.get(0));
             for (int i = 1; i < regs.size(); ++i) {
-                res.append(", i32 ").append(regs.get(i));
+                res.append(",").append(func.params_type[i]).append(" ").append(regs.get(i));
             }
         }
         res.append(")\n");

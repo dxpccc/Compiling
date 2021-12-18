@@ -60,7 +60,7 @@ define dso_local i32 @main() {
 	store i32 %r32, i32* %r31
 	%r33 = alloca i32
 	%r35 = getelementptr [3 x i32], [3 x i32]* %r26, i32 0, i32 0
-	%r34 = call i32 @_getMaxOfAll(i32 %r35, i32 3)
+	%r34 = call i32 @_getMaxOfAll(i32* %r35,i32 3)
 	%r36 = getelementptr [3 x i32], [3 x i32]* %r26, i32 0, i32 %r34
 	%r37 = load i32, i32* %r36
 	store i32 %r37, i32* %r33
