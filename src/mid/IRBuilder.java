@@ -707,9 +707,9 @@ public class IRBuilder {
             formal_params.put(ast.ident, ident);
             res.append("i32 ").append(reg);
         } else if (ast.dim == 1) {
-            int[] lengths = new int[1];
-            lengths[0] = Integer.MAX_VALUE;
-            ident = new Ident(ast.ident, Ident.Type.ARR, reg, null, new Array(1, lengths));
+            //int[] lengths = new int[1];
+            //lengths[0] = Integer.MAX_VALUE;
+            ident = new Ident(ast.ident, Ident.Type.ARR, reg, null, new Array(1, null));
             formal_params.put(ast.ident, ident);
             res.append("i32* ").append(reg);
         } else {
