@@ -1011,8 +1011,11 @@ public class IRBuilder {
         if (array_lengths[0] != Integer.MAX_VALUE) {
             sb.append(", i32 0");
         }
-        for (String i : location) {
-            sb.append(", i32 ").append(i);
+        // 当只有数组名时，会传入空的location
+        if (location != null) {
+            for (String i : location) {
+                sb.append(", i32 ").append(i);
+            }
         }
         // 输出为指针多一个 i32 0
         if (is_ptr)
@@ -1374,9 +1377,7 @@ public class IRBuilder {
                         System.out.println("[IRBuilder] 语义错误: 数组元素 " + ast.array_elem.ident + " 维数错误");
                         System.exit(-3);
                     }
-                    String[] locations = new String[1];
-                    locations[0] = "0";
-                    reg = getArrayElement(ident.reg, ident.array.lengths, locations, sb, is_ptr);
+                    reg = getArrayElement(ident.reg, ident.array.lengths, null, sb, is_ptr);
                 } else {
                     reg_r = ident.reg;
                     reg = getReg();
