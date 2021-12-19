@@ -33,6 +33,7 @@ class Ident {
         switch (type) {
             case GLOBAL_CONST:
             case GLOBAL_VAR_INIT:
+            case CONSTVAR:
                 this.value = value;
                 this.array = null;
                 break;
@@ -47,7 +48,6 @@ class Ident {
                 this.value = null;
                 this.array = array;
                 break;
-            case CONSTVAR:
             case VAR_INIT:
             case VAR_UNINIT:
             default:
@@ -839,7 +839,10 @@ public class IRBuilder {
         // 添加IR
         res.append("\tstore i32 ").append(reg_r).append(", i32* ").append(reg_l).append("\n");
 
-        ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.CONSTVAR, reg_l, null, null));
+        // 计算常量的值，局部常量也会被用来计算数组长度
+        int value = calculateAddExp(ast.init_val);
+
+        ident_table_list.peek().put(ident, new Ident(ident, Ident.Type.CONSTVAR, reg_l, String.valueOf(value), null));
         return res.toString();
     }
 
