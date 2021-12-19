@@ -1012,7 +1012,8 @@ public class IRBuilder {
             sb.append(", i32 ").append(i);
         }
         // 输出为指针多一个 i32 0
-        sb.append(", i32 0");
+        if (is_ptr)
+            sb.append(", i32 0");
         sb.append("\n");
         return reg;
     }
