@@ -832,7 +832,7 @@ public class IRBuilder {
 
         // 添加IR
         StringBuilder add_code = new StringBuilder();
-        String reg_r = visitAddExp(ast.init_val, add_code, 0);
+        String reg_r = visitAddExp(ast.init_val, add_code, 0, false);
         res.append(add_code);
         // 添加IR
 
@@ -967,7 +967,7 @@ public class IRBuilder {
                     System.out.println("[IRBuilder] 语义错误: 数组初始化表达式错误");
                     System.exit(-3);
                 }
-                String value = visitAddExp(ast.exp, res, 0);
+                String value = visitAddExp(ast.exp, res, 0, false);
                 res.append("\t").append("store i32 ").append(value).append(", i32* ").append(addr).append("\n");
             }
         } else if (ast.type == InitValAST.Type.INITVAL) {
@@ -982,7 +982,7 @@ public class IRBuilder {
                 String[] location = new String[1];
                 location[0] = "" + i;
                 // 下一维数组的地址
-                String new_addr = getArrayElement(addr, lengths, location, res);
+                String new_addr = getArrayElement(addr, lengths, location, res, false);
                 // 递归
                 String str = visitInitVal(child, dim - 1, new_addr, new_lengths, isConst);
                 res.append(str);
@@ -998,19 +998,21 @@ public class IRBuilder {
      * @param sb 返回的IR
      * @return 元素的寄存器
      */
-    private String getArrayElement(String start_addr, int[] array_lengths, String[] location, StringBuilder sb) {
+    private String getArrayElement(String start_addr, int[] array_lengths, String[] location, StringBuilder sb, boolean is_ptr) {
         // %1 = getelementptr [5 x [4 x i32]], [5 x [4 x i32]]* @a, i32 0, i32 2, i32 3
         String reg = getReg();
         String array_type = generateArrayType(array_lengths);
         sb.append("\t").append(reg).append(" = getelementptr ").append(array_type)
                 .append(", ").append(array_type).append("* ").append(start_addr);
-        // 不是指针
+        // 通过形参的指针获取不需要第一个 i32 0
         if (array_lengths[0] != Integer.MAX_VALUE) {
             sb.append(", i32 0");
         }
         for (String i : location) {
             sb.append(", i32 ").append(i);
         }
+        // 输出为指针多一个 i32 0
+        sb.append(", i32 0");
         sb.append("\n");
         return reg;
     }
@@ -1051,7 +1053,7 @@ public class IRBuilder {
 
             // 添加IR
             StringBuilder add_code = new StringBuilder();
-            reg_r = visitAddExp(ast.init_var, add_code, 0);
+            reg_r = visitAddExp(ast.init_var, add_code, 0, false);
             res.append(add_code);
             // 添加IR
 
@@ -1120,7 +1122,7 @@ public class IRBuilder {
                     String func_call = visitFuncCall(ast.exp.LHS.LHS.primary.func_call, null);
                     res.append(func_call);
                 } else
-                    visitAddExp(ast.exp, res, 0);
+                    visitAddExp(ast.exp, res, 0, false);
                 break;
             case BLOCK:
                 res.append(visitBlock(ast.block));
@@ -1171,11 +1173,11 @@ public class IRBuilder {
                 reg_l = ident.reg;
             else {
                 String[] locations = addExpArray2StringArray(ast.array_elem.locations, res);
-                reg_l = getArrayElement(ident.reg, ident.array.lengths, locations, res);
+                reg_l = getArrayElement(ident.reg, ident.array.lengths, locations, res, false);
             }
             // 添加IR
             StringBuilder add_code = new StringBuilder();
-            String reg_r = visitAddExp(add, add_code, 0);
+            String reg_r = visitAddExp(add, add_code, 0, false);
             res.append(add_code);
             // 添加IR
 
@@ -1196,7 +1198,7 @@ public class IRBuilder {
         // 添加IR
         StringBuilder add_code = new StringBuilder();
         if (ast.type == ReturnAST.Type.INT && func_type == Func.Type.INT) {
-            String reg = visitAddExp(ast.exp, add_code, 0);
+            String reg = visitAddExp(ast.exp, add_code, 0, false);
             res.append(add_code);
             res.append("\tret i32 ").append(reg).append("\n");
         } else if (ast.type == ReturnAST.Type.VOID && func_type == Func.Type.VOID) {
@@ -1215,9 +1217,11 @@ public class IRBuilder {
     /**
      * @param ast AST节点
      * @param sb 记录IR代码
+     * @param dim 需要的维数
+     * @param is_ptr 计算结果是否为指针
      * @return 表达式最后结果的reg
      * */
-    private String visitAddExp(AddExpAST ast, StringBuilder sb, int dim) {
+    private String visitAddExp(AddExpAST ast, StringBuilder sb, int dim, boolean is_ptr) {
         // 变量未定义
         if (!checkExp(ast, false)) {
             System.out.println("[IRBuilder] 语义错误: 表达式中有变量未声明");
@@ -1229,7 +1233,7 @@ public class IRBuilder {
 
         // 添加IR
         StringBuilder mul_code = new StringBuilder();
-        reg = visitMulExp(ast.LHS, mul_code, dim);
+        reg = visitMulExp(ast.LHS, mul_code, dim, is_ptr);
         sb.append(mul_code);
         // 添加IR
 
@@ -1238,7 +1242,7 @@ public class IRBuilder {
 
             // 添加IR
             mul_code = new StringBuilder();
-            reg_r = visitMulExp(cur_ast.RHS.LHS, mul_code, dim);
+            reg_r = visitMulExp(cur_ast.RHS.LHS, mul_code, dim, is_ptr);
             sb.append(mul_code);
             // 添加IR
 
@@ -1258,13 +1262,13 @@ public class IRBuilder {
      * @param sb 记录IR代码
      * @return 表达式最后结果的reg
      * */
-    private String visitMulExp(MulExpAST ast, StringBuilder sb, int dim) {
+    private String visitMulExp(MulExpAST ast, StringBuilder sb, int dim, boolean is_ptr) {
         String reg, reg_l, reg_r, op;
         MulExpAST cur_ast = ast;
 
         // 添加IR
         StringBuilder unary_code = new StringBuilder();
-        reg = visitUnaryExp(ast.LHS, unary_code, dim);
+        reg = visitUnaryExp(ast.LHS, unary_code, dim, is_ptr);
         sb.append(unary_code);
         // 添加IR
 
@@ -1273,7 +1277,7 @@ public class IRBuilder {
 
             // 添加IR
             unary_code = new StringBuilder();
-            reg_r = visitUnaryExp(cur_ast.RHS.LHS, unary_code, dim);
+            reg_r = visitUnaryExp(cur_ast.RHS.LHS, unary_code, dim, is_ptr);
             sb.append(unary_code);
             // 添加IR
 
@@ -1306,12 +1310,12 @@ public class IRBuilder {
      * @param sb 记录IR代码
      * @return 表达式最后结果的reg
      * */
-    private String visitUnaryExp(UnaryExpAST ast, StringBuilder sb, int dim) {
+    private String visitUnaryExp(UnaryExpAST ast, StringBuilder sb, int dim, boolean is_ptr) {
         String reg, reg_r;
 
         // 添加IR
         StringBuilder primary_code = new StringBuilder();
-        reg = reg_r = visitPrimaryExp(ast.primary, primary_code, dim);
+        reg = reg_r = visitPrimaryExp(ast.primary, primary_code, dim, is_ptr);
         sb.append(primary_code);
         // 添加IR
 
@@ -1341,7 +1345,7 @@ public class IRBuilder {
      * @param sb 记录IR代码
      * @return 表达式最后结果的reg
      * */
-    private String visitPrimaryExp(PrimaryExpAST ast, StringBuilder sb, int dim) {
+    private String visitPrimaryExp(PrimaryExpAST ast, StringBuilder sb, int dim, boolean is_ptr) {
         String reg, reg_r;
         Ident ident;
         switch (ast.type) {
@@ -1349,7 +1353,7 @@ public class IRBuilder {
 
                 // 添加IR
                 StringBuilder add_code = new StringBuilder();
-                reg = visitAddExp(ast.exp, add_code, dim);
+                reg = visitAddExp(ast.exp, add_code, dim, is_ptr);
                 sb.append(add_code);
                 // 添加IR
 
@@ -1368,7 +1372,7 @@ public class IRBuilder {
                     }
                     String[] locations = new String[1];
                     locations[0] = "0";
-                    reg = getArrayElement(ident.reg, ident.array.lengths, locations, sb);
+                    reg = getArrayElement(ident.reg, ident.array.lengths, locations, sb, is_ptr);
                 } else {
                     reg_r = ident.reg;
                     reg = getReg();
@@ -1408,7 +1412,7 @@ public class IRBuilder {
                     System.exit(-3);
                 }
                 String[] locations = addExpArray2StringArray(ast.array_elem.locations, sb);
-                reg_r = getArrayElement(ident.reg, ident.array.lengths, locations, sb);
+                reg_r = getArrayElement(ident.reg, ident.array.lengths, locations, sb, is_ptr);
                 if (dim == 0) {
                     reg = getReg();
                     // 添加IR
@@ -1423,6 +1427,11 @@ public class IRBuilder {
         return reg;
     }
 
+    /**
+     * @param asts Exp类型的数组索引
+     * @param sb 记录IR代码
+     * @return 将Exp计算出来
+     */
     private String[] addExpArray2StringArray(ArrayList<AddExpAST> asts, StringBuilder sb) {
         int len = asts.size();
         String[] res = new String[len];
@@ -1432,7 +1441,7 @@ public class IRBuilder {
                 System.out.println("[IRBuilder] 语义错误: 数组元素索引错误");
                 System.exit(-3);
             }
-            res[i] = visitAddExp(add, sb, 0);
+            res[i] = visitAddExp(add, sb, 0, false);
         }
         return res;
     }
@@ -1467,12 +1476,16 @@ public class IRBuilder {
 
         StringBuilder add_code;
         String reg;
+        boolean is_ptr = false;
         int len = ast.params.size();
         for (int i = 0; i < len; ++i) {
             // 添加IR
             add_code = new StringBuilder();
             // 计算参数
-            reg = visitAddExp(ast.params.get(i), add_code, func.params.params.get(i).dim);
+            int dim = func.params.params.get(i).dim;    // 所需参数的维数
+            if (dim != 0)   // 若不是0维则需要传入指针
+                is_ptr = true;
+            reg = visitAddExp(ast.params.get(i), add_code, dim, is_ptr);
             res.append(add_code);
             // 添加IR
 
@@ -1649,7 +1662,7 @@ public class IRBuilder {
 
         // 添加IR
         StringBuilder add_code = new StringBuilder();
-        reg = visitAddExp(ast.add, add_code, 0);
+        reg = visitAddExp(ast.add, add_code, 0, false);
         sb.append(add_code);
         // 添加IR
 
@@ -1658,7 +1671,7 @@ public class IRBuilder {
 
             // 添加IR
             add_code = new StringBuilder();
-            reg_r = visitAddExp(cur_ast.rel.add, add_code, 0);
+            reg_r = visitAddExp(cur_ast.rel.add, add_code, 0, false);
             sb.append(add_code);
             // 添加IR
 
